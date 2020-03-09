@@ -1,0 +1,3 @@
+.snakemake
+.test/logs
+.test/output
