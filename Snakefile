@@ -46,7 +46,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}.bam", "output/{run}_mapped.fq", "output/{run}/final.contigs.fa", "output/stats/{run}_bamstats.txt", "output/stats/{run}_coverage.txt", "output/stats/{run}_basecov.txt"], run = RUN)
+    input: expand(["output/{run}.bam", "output/{run}_mapped.fq", "output/stats/{run}_bamstats.txt", "output/{run}/final.contigs.fa", "output/stats/{run}_coverage.txt", "output/stats/{run}_basecov.txt", "output/{run}_var-filt.vcf"], run = RUN)
 
 
 
@@ -84,8 +84,8 @@ rule bwa_mem_ref:
       "output/{run}.bam"
     params:
       db_prefix = REF_GENOME,
-      extra = "",
-      sorting = "none"
+      extra = "-L 100,100 -k 15",
+      sorting = "samtools"
     log:
       "logs/{run}_bwa_mem_ref.log"
     threads: 4
@@ -117,13 +117,29 @@ rule samtools_bam2fq:
         "0.49.0/bio/samtools/bam2fq/interleaved"
 
 
+rule bcftools_call:
+    input:
+      ref=REF_GENOME,
+      samples=rules.bwa_mem_ref.output
+    output:
+      "output/{run}_var-filt.vcf"
+    params:
+      mpileup="-Ou",
+      call="-Ou -mv",
+      filter="-s LowQual -e '%QUAL<20 || DP>100'"
+    log:
+      "logs/{run}_bcftools_call.log"
+    wrapper:
+      "file:../wrappers/bcftools"
+
+
 rule assemble:
     input: 
       se = expand("output/{run}_mapped.fq", run = RUN)
     output: 
       contigs = "output/{run}/final.contigs.fa"
     params:
-      extra = "--min-contig-len 1000"
+      extra = ""
     threads: 4
     log: "logs/{run}_assemble.log"
     shadow: 
@@ -145,7 +161,7 @@ rule coverage:
       covstats = "output/stats/{run}_coverage.txt",
       basecov = "output/stats/{run}_basecov.txt"
     params: 
-      extra = "kfilter=22 subfilter=15 maxindel=80 nodisk"
+      extra = "nodisk"
     wrapper:
       WRAPPER_PREFIX + "master/bbmap/bbwrap"
 
