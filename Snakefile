@@ -26,11 +26,6 @@ SAMPLES = SAMPLES.set_index(
 RUN = SAMPLES.index.tolist()
 
 
-wildcard_constraints:
-    run = "[a-zA-Z0-9]+",
-    group = "[a-zA-Z0-9]+"
-
-
 # Path to reference genomes
 REF_GENOME = config["refgenome"]
 TAXON_DB = os.getenv("TAXON_DB")
