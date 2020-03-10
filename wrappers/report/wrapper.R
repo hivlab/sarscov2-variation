@@ -41,8 +41,10 @@ parsed_stats <- values %>%
   map(read_tsv, col_names = FALSE)
 
 #+ bam-stats-chapter, results='asis'
-glue("## {run} alignment to NC_045512.2 -- bam stats")
+tabset <- "{.tabset .tabset-fade}"
+glue("## {run} alignment to NC_045512.2 -- bam stats {tabset}")
 
+#' ### Summary numbers
 #+ summary-nums
 summary_nums <- parsed_stats[["summary_numbers"]] %>% select(-1)
 colnames(summary_nums) <- c("key", "value")
@@ -52,15 +54,16 @@ summary_nums %>%
   kable(caption = "Summary numbers.") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE)
 
-
+#' ### GC content
 #+ gc-first-fragments, fig.cap='GC content of first fragments.'
 gc_cont <- parsed_stats[["gc_content_of_first_fragments"]] %>% select(-1)
 gc_plot <- ggplot(gc_cont) +
   geom_col(aes(X2, X3)) +
   labs(x = "GC%", y = "First fragments")
-gc_plot
+ggplotly(gc_plot)
 
 
+#' ### AGCT content
 #+ acgt-content, fig.cap='AGCT content per cycle.'
 agct_cycle <- parsed_stats[["acgt_content_per_cycle"]] %>% select(-1)
 colnames(agct_cycle) <- c("cycle", LETTERS[c(1, 3, 7, 20)], "N", "O")
@@ -72,17 +75,18 @@ agct_plot <- agct_cycle %>%
   labs(y = "Cycle") +
   theme(axis.title.x = element_blank(),
         legend.title = element_blank())
-agct_plot
+ggplotly(agct_plot)
 
-
+#' ### Read lengths
 #+ read-length, fig.cap='Read lengths.'
 read_lengths <- parsed_stats[["read_lengths"]] %>% select(-1)
 rl_plot <- ggplot(read_lengths) +
   geom_col(aes(X2, X3)) +
   labs(x = "Read length", y = "Count") +
   scale_y_log10()
-rl_plot
+ggplotly(rl_plot)
 
+#' ### In/del distribution
 #+ indel-dist, fig.cap='In/del distribution.'
 indel_dist <- parsed_stats[["indel_distribution"]] %>% select(-1)
 colnames(indel_dist) <- c("length", "ins", "del")
@@ -93,9 +97,9 @@ indel_plot <- indel_dist %>%
   geom_col(aes(length, value)) +
   facet_wrap(~name) +
   labs(x = "Length", y = "Count")
-indel_plot
+ggplotly(indel_plot)
 
-
+#' ### Coverage distribution
 #+ cov-dist, fig.cap='Distribution of the alignment depth per covered reference site.'
 cov_dist <- parsed_stats[["coverage_distribution"]] %>% select(-1)
 cov_plot <- cov_dist %>% 
@@ -103,4 +107,4 @@ cov_plot <- cov_dist %>%
   geom_col(aes(x=X3, y=X4)) +
   labs(x = "Coverage", y = "Sites") +
   scale_x_log10()
-cov_plot
+ggplotly(cov_plot)
