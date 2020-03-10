@@ -108,3 +108,19 @@ cov_plot <- cov_dist %>%
   labs(x = "Coverage", y = "Sites") +
   scale_x_log10()
 ggplotly(cov_plot)
+
+#' ## Variant calling
+vcf <- read_tsv(here(glue("test/output/{run}_var-filt.vcf")), comment = "#", col_names = FALSE)
+colnames(vcf) <- str_split("CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	output/SRR11092064.bam", pattern = "\\s+", simplify = TRUE)
+vcf %>% 
+  mutate_at("POS", formatC, big.mark=",", format="d") %>% 
+  select(CHROM:INFO) %>% 
+  kable(caption = "Variant calling summary.") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE)
+
+#' ## Circular diagram
+#+
+include_graphics(here("nucmer2circos.svg"))
+
+
+
