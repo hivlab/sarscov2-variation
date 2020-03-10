@@ -95,8 +95,6 @@ rule ref_mapped:
       "output/{run}_mapped.bam"
     params:
       "-b -F 4"
-    log:
-      "logs/{run}_mapped.log"
     threads: 4
     wrapper:
       "0.49.0/bio/samtools/view"
