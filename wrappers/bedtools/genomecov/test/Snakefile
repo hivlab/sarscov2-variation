@@ -1,0 +1,9 @@
+rule bam_with_chroms_that_have_no_coverage:
+    input:
+        ibam = "y.bam"
+    output:
+        "cov.txt"
+    params:
+        extra = "-bg"
+    wrapper: 
+        "file:../wrapper.py"
