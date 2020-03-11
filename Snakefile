@@ -88,6 +88,17 @@ rule bwa_mem_ref:
       "https://raw.githubusercontent.com/tpall/snakemake-wrappers/bug/snakemake_issue145/bio/bwa/mem"
 
 
+rule genomecov:
+    input:
+        ibam = rules.bwa_mem_ref.output
+    output:
+        "output/stats/{run}_genomecov.bg"
+    params:
+        extra = "-bg"
+    wrapper: 
+        "file:../wrappers/bedtools/genomecov"
+
+
 rule ref_mapped:
     input:
       rules.bwa_mem_ref.output
@@ -100,14 +111,17 @@ rule ref_mapped:
       "0.49.0/bio/samtools/view"
 
 
-rule samtools_bam2fq:
+# Host mapping stats.
+rule ref_bam_stats:
     input:
-      rules.ref_mapped.output
+      rules.bwa_mem_ref.output
     output:
-      "output/{run}_mapped.fq"
-    threads: 4
+      "output/stats/{run}_bamstats.txt"
+    params:
+      extra = "-F 4",
+      region = ""
     wrapper:
-        "0.49.0/bio/samtools/bam2fq/interleaved"
+      "0.42.0/bio/samtools/stats"
 
 
 rule bcftools_call:
@@ -124,6 +138,16 @@ rule bcftools_call:
       "logs/{run}_bcftools_call.log"
     wrapper:
       "file:../wrappers/bcftools"
+
+
+rule samtools_bam2fq:
+    input:
+      rules.ref_mapped.output
+    output:
+      "output/{run}_mapped.fq"
+    threads: 4
+    wrapper:
+        "0.49.0/bio/samtools/bam2fq/interleaved"
 
 
 rule assemble:
@@ -159,14 +183,3 @@ rule coverage:
       WRAPPER_PREFIX + "master/bbmap/bbwrap"
 
 
-# Host mapping stats.
-rule ref_bam_stats:
-    input:
-      rules.bwa_mem_ref.output
-    output:
-      "output/stats/{run}_bamstats.txt"
-    params:
-      extra = "-F 4",
-      region = ""
-    wrapper:
-      "0.42.0/bio/samtools/stats"

@@ -11,7 +11,7 @@ extra = snakemake.params.get("extra", "")
 
 # Parse inputs
 ind = snakemake.input
-inputs = " ".join(list({"-" + k + " " + v for k, v in ind.items()}))
+inputs = " ".join(list({"-" + k + " " + v[0] for k, v in ind.items()}))
 
 
 shell("bedtools genomecov {extra} {inputs} > {snakemake.output[0]}")
