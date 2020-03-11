@@ -13,5 +13,6 @@ output_file <- file.path(wd, snakemake@output[[1]])
 # render
 rmarkdown::render(
   here::here("wrappers/report/report.R"), 
-  output_file = output_file
+  output_file = output_file,
+  output_format = bookdown::html_document2(number_sections = FALSE, theme = "flatly")
   )

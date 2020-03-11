@@ -1,11 +1,11 @@
+
 #' ---
-#' title: Report
-#' date: "`r Sys.Date()`"
+#' title: "SARS-CoV-2 sequencing report"
 #' author: "`r author`"
-#' output: 
-#'     bookdown::html_document2:
-#'         number_sections: FALSE
+#' date: "`r Sys.Date()`"
 #' ---
+#' 
+#' 
 #' 
 #+ opts, include=FALSE
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.align='center')
