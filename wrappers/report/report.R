@@ -1,7 +1,7 @@
 #' ---
-#' title: "Report"
-#' date: !r Sys.Date()
-#' author: !r author
+#' title: Report
+#' date: "`r Sys.Date()`"
+#' author: "`r author`"
 #' output: 
 #'     bookdown::html_document2:
 #'         number_sections: FALSE
@@ -54,8 +54,9 @@ summary_nums %>%
 #' ### GC content
 #+ gc-first-fragments, fig.cap='GC content of first fragments.'
 gc_cont <- parsed_stats[["gc_content_of_first_fragments"]]
-gc_plot <- ggplot() +
-  geom_col(aes(gc_cont[[2]], gc_cont[[3]])) +
+gc_plot <- tibble(x=gc_cont[[2]], y=gc_cont[[3]]) %>% 
+  ggplot() +
+  geom_line(aes(x, y, group = 1)) +
   labs(x = "GC%", y = "First fragments")
 ggplotly(gc_plot)
 
@@ -100,8 +101,9 @@ ggplotly(indel_plot)
 #+ cov-dist, fig.cap='Distribution of the alignment depth per covered reference site.'
 cov_dist <- parsed_stats[["coverage_distribution"]] %>% select(-1)
 cov_plot <- cov_dist %>% 
-  ggplot() +
-  geom_col(aes(x=X3, y=X4)) +
+  ggplot(aes(x=X3, y=X4)) +
+  geom_point() +
+  geom_line(aes(group = 1)) +
   labs(x = "Coverage", y = "Sites") +
   scale_x_log10()
 ggplotly(cov_plot)
