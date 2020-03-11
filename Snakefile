@@ -41,7 +41,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}.bam", "output/{run}_mapped.fq", "output/stats/{run}_bamstats.txt", "output/{run}/final.contigs.fa", "output/stats/{run}_coverage.txt", "output/stats/{run}_basecov.txt", "output/{run}_var-filt.vcf"], run = RUN)
+    input: expand(["output/{run}_report.html", "output/{run}.bam", "output/{run}_mapped.fq", "output/stats/{run}_bamstats.txt", "output/{run}/final.contigs.fa", "output/stats/{run}_coverage.txt", "output/stats/{run}_basecov.txt", "output/{run}_var-filt.vcf", "output/stats/{run}_genomecov.bg"], run = RUN)
 
 
 
@@ -182,4 +182,16 @@ rule coverage:
     wrapper:
       WRAPPER_PREFIX + "master/bbmap/bbwrap"
 
+
+rule report:
+    input:
+      bamstats = "output/stats/{run}_bamstats.txt",
+      vcf = "output/{run}_var-filt.vcf"
+    output:
+      "output/{run}_report.html"
+    params:
+      author = config["author"],
+      run = lambda wildcards: wildcards.run
+    wrapper:
+      "file:../wrappers/report"
 

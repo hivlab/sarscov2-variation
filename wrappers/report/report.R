@@ -1,7 +1,7 @@
 #' ---
-#' title: Report
-#' date: "`r Sys.Date()`"
-#' author: "`r params$author`"
+#' title: "Report"
+#' date: !r Sys.Date()
+#' author: !r author
 #' output: 
 #'     bookdown::html_document2:
 #'         number_sections: FALSE
@@ -10,23 +10,17 @@
 #+ opts, include=FALSE
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.align='center')
 
-#+ params
-run <- params$run
-bamstats_file <- params$bamstats
-vcf_file <- params$vcf
-
 #+ libs
-library(checkpoint)
-checkpoint("2020-03-10")
 library(tidyverse)
 library(here)
 library(knitr)
 library(kableExtra)
 library(formattable)
+library(glue)
 library(plotly)
 
 #+ parse
-bamstats <- read_lines(here(bamstats_file))
+bamstats <- read_lines(bamstats_file)
 vars <- str_subset(bamstats, "^#.*Use") %>%
   str_extract("^[^.]+") %>%
   str_replace("# ", "")
@@ -40,7 +34,7 @@ names(values) <- vars %>%
   str_to_lower() %>%
   str_replace_all("[ -]+", "_")
 parsed_stats <- values %>%
-  keep(~str_length(.) > 0) %>%
+  keep(~str_length(.x) != 0) %>%
   map(read_tsv, col_names = FALSE)
 
 #+ bam-stats-chapter, results='asis'
@@ -59,9 +53,9 @@ summary_nums %>%
 
 #' ### GC content
 #+ gc-first-fragments, fig.cap='GC content of first fragments.'
-gc_cont <- parsed_stats[["gc_content_of_first_fragments"]] %>% select(-1)
-gc_plot <- ggplot(gc_cont) +
-  geom_col(aes(X2, X3)) +
+gc_cont <- parsed_stats[["gc_content_of_first_fragments"]]
+gc_plot <- ggplot() +
+  geom_col(aes(gc_cont[[2]], gc_cont[[3]])) +
   labs(x = "GC%", y = "First fragments")
 ggplotly(gc_plot)
 
@@ -113,7 +107,7 @@ cov_plot <- cov_dist %>%
 ggplotly(cov_plot)
 
 #' ## Variant calling
-vcf <- read_tsv(here(vcf_file), comment = "#", col_names = FALSE)
+vcf <- read_tsv(vcf_file, comment = "#", col_names = FALSE)
 colnames(vcf) <- str_split("CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	output/SRR11092064.bam", pattern = "\\s+", simplify = TRUE)
 vcf %>% 
   mutate_at("POS", formatC, big.mark=",", format="d") %>% 
