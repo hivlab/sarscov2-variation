@@ -15,6 +15,9 @@ properties:
   email:
     type: string
     description: email for remote file FTP download
+  author:
+    type: string
+    description: Author of the report
 
 required:
   - samples

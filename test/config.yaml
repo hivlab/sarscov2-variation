@@ -9,6 +9,7 @@ samples: samples.tsv
 remote: True
 
 # Email address
+author: Taavi Päll
 email: tapa741@gmail.com
 
 # Ref genome

@@ -1,0 +1,15 @@
+channels:
+  - r
+  - conda-forge
+  - defaults
+dependencies:
+  - r-base
+  - r-bookdown
+  - r-checkpoint
+  - r-tidyverse
+  - r-here
+  - r-knitr
+  - r-markdown
+  - r-formattable
+  - plotly
+  - r-kableextra
