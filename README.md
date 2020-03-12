@@ -1,4 +1,4 @@
-https://img.shields.io/badge/status-under%20development-yellow
+![status](https://img.shields.io/badge/status-under%20development-yellow)
 
 # sarscov2
 
