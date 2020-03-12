@@ -41,7 +41,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}_report.html", "output/{run}.bam", "output/{run}_mapped.fq", "output/stats/{run}_bamstats.txt", "output/{run}/final.contigs.fa", "output/stats/{run}_coverage.txt", "output/stats/{run}_basecov.txt", "output/{run}_var-filt.vcf", "output/stats/{run}_genomecov.bg"], run = RUN)
+    input: expand(["output/{run}/report.html", "output/{run}/final.contigs.fa", "output/{run}/coverage.txt", "output/{run}/basecov.txt", "output/{run}/genomecov.bg"], run = RUN)
 
 
 
@@ -58,11 +58,11 @@ rule preprocess:
     input:
       sample = get_fastq
     output:
-      adapters = temp("output/{run}_adapters.fa"),
-      merged = temp("output/{run}_merged.fq"),
-      unmerged = temp("output/{run}_unmerged.fq"),
-      trimmed = temp("output/{run}_trimmed.fq"),
-      sampled = temp("output/{run}_sample.fq")
+      adapters = temp("output/{run}/adapters.fa"),
+      merged = temp("output/{run}/merged.fq"),
+      unmerged = temp("output/{run}/unmerged.fq"),
+      trimmed = temp("output/{run}/trimmed.fq"),
+      sampled = temp("output/{run}/sample.fq")
     params:
       bbduk = "qtrim=r trimq=10 maq=10 minlen=100",
       seed = config["seed"]
@@ -76,13 +76,11 @@ rule bwa_mem_ref:
     input:
       reads = [rules.preprocess.output.sampled]
     output:
-      "output/{run}.bam"
+      "output/{run}/refgenome.bam"
     params:
       db_prefix = REF_GENOME,
       extra = "-L 100,100 -k 15",
       sorting = "samtools"
-    log:
-      "logs/{run}_bwa_mem_ref.log"
     threads: 4
     wrapper:
       "https://raw.githubusercontent.com/tpall/snakemake-wrappers/bug/snakemake_issue145/bio/bwa/mem"
@@ -92,7 +90,7 @@ rule genomecov:
     input:
         ibam = rules.bwa_mem_ref.output
     output:
-        "output/stats/{run}_genomecov.bg"
+        "output/{run}/genomecov.bg"
     params:
         extra = "-bg"
     wrapper: 
@@ -103,7 +101,7 @@ rule ref_mapped:
     input:
       rules.bwa_mem_ref.output
     output:
-      "output/{run}_mapped.bam"
+      "output/{run}/mapped.bam"
     params:
       "-b -F 4"
     threads: 4
@@ -116,7 +114,7 @@ rule ref_bam_stats:
     input:
       rules.bwa_mem_ref.output
     output:
-      "output/stats/{run}_bamstats.txt"
+      "output/{run}/bamstats.txt"
     params:
       extra = "-F 4",
       region = ""
@@ -129,13 +127,11 @@ rule bcftools_call:
       ref=REF_GENOME,
       samples=rules.bwa_mem_ref.output
     output:
-      "output/{run}_var-filt.vcf"
+      "output/{run}/var_filt.vcf"
     params:
       mpileup="-Ou",
       call="-Ou -mv",
       filter="-s LowQual -e '%QUAL<20 || DP>100'"
-    log:
-      "logs/{run}_bcftools_call.log"
     wrapper:
       "file:../wrappers/bcftools"
 
@@ -144,7 +140,7 @@ rule samtools_bam2fq:
     input:
       rules.ref_mapped.output
     output:
-      "output/{run}_mapped.fq"
+      "output/{run}/mapped.fq"
     threads: 4
     wrapper:
         "0.49.0/bio/samtools/bam2fq/interleaved"
@@ -152,7 +148,7 @@ rule samtools_bam2fq:
 
 rule assemble:
     input: 
-      se = expand("output/{run}_mapped.fq", run = RUN)
+      se = expand("output/{run}/mapped.fq", run = RUN)
     output: 
       contigs = "output/{run}/final.contigs.fa"
     params:
@@ -160,7 +156,7 @@ rule assemble:
     threads: 4
     log: "logs/{run}_assemble.log"
     shadow: 
-      "full"
+      "minimal"
     wrapper:
       WRAPPER_PREFIX + "release/metformin-pill/assembly/megahit"
 
@@ -172,11 +168,11 @@ rule assemble:
 rule coverage:
     input:
       ref = rules.assemble.output.contigs, 
-      input = expand("output/{run}_mapped.fq", run = RUN) 
+      input = expand("output/{run}/mapped.fq", run = RUN) 
     output:
       out = temp("output/{run}/final.contigs_aln.sam"),
-      covstats = "output/stats/{run}_coverage.txt",
-      basecov = "output/stats/{run}_basecov.txt"
+      covstats = "output/{run}/coverage.txt",
+      basecov = "output/{run}/basecov.txt"
     params: 
       extra = "nodisk"
     wrapper:
@@ -185,10 +181,10 @@ rule coverage:
 
 rule report:
     input:
-      bamstats = "output/stats/{run}_bamstats.txt",
-      vcf = "output/{run}_var-filt.vcf"
+      bamstats = "output/{run}/bamstats.txt",
+      vcf = "output/{run}/var_filt.vcf"
     output:
-      "output/{run}_report.html"
+      "output/{run}/report.html"
     params:
       author = config["author"],
       run = lambda wildcards: wildcards.run

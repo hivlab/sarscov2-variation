@@ -1,3 +1,5 @@
 .snakemake
-.test/logs
-.test/output
+test/logs
+test/output
+.Rproj.user
+*.Rproj
