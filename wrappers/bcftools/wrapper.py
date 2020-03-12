@@ -9,8 +9,8 @@ from snakemake.shell import shell
 
 shell(
     """
-    (bcftools mpileup {snakemake.params.mpileup} -f {snakemake.input.ref} {snakemake.input.samples} | \
+    bcftools mpileup {snakemake.params.mpileup} -f {snakemake.input.ref} {snakemake.input.samples} | \
     bcftools call {snakemake.params.call} | \
-    bcftools filter {snakemake.params.filter} > {snakemake.output[0]}) 2> {snakemake.log}
+    bcftools filter {snakemake.params.filter} > {snakemake.output[0]}
     """
 )

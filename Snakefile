@@ -154,7 +154,6 @@ rule assemble:
     params:
       extra = ""
     threads: 4
-    log: "logs/{run}_assemble.log"
     shadow: 
       "minimal"
     wrapper:
