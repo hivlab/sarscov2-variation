@@ -1,12 +1,9 @@
-
 #' ---
 #' title: "SARS-CoV-2 sequencing report"
-#' author: "`r author`"
+#' author: "`r author`"  
 #' date: "`r Sys.Date()`"
 #' ---
-#' 
-#' 
-#' 
+
 #+ opts, include=FALSE
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.align='center')
 
@@ -37,9 +34,18 @@ parsed_stats <- values %>%
   keep(~str_length(.x) != 0) %>%
   map(read_tsv, col_names = FALSE)
 
+#' ## Refseq
+#' 
+#' - NCBI Reference Sequence: *NC_045512.2* -- Wuhan seafood market pneumonia virus isolate Wuhan-Hu-1, complete genome
+#'    - A novel coronavirus associated with a respiratory disease in Wuhan of Hubei province, China
+#'    - 29903 bp, ss-RNA, linear, VRL, 28-JAN-2020
+#'
+
 #+ bam-stats-chapter, results='asis'
 tabset <- "{.tabset .tabset-fade}"
-glue("## {run} alignment to NC_045512.2 -- bam stats {tabset}")
+glue("## {run} alignment to refseq {tabset}")
+#' 
+ 
 
 #' ### Summary numbers
 #+ summary-nums
