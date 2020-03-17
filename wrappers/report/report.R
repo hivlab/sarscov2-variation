@@ -32,7 +32,7 @@ names(values) <- vars %>%
   str_replace_all("[ -]+", "_")
 parsed_stats <- values %>%
   keep(~str_length(.x) != 0) %>%
-  map(read_tsv, col_names = FALSE)
+  map(~as_tibble(read.csv(text = .x, header = FALSE, sep = "\t")))
 
 #' ## Refseq
 #' 
