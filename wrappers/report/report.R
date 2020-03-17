@@ -4,7 +4,7 @@
 #' date: "`r Sys.Date()`"
 #' ---
 
-#+ opts, include=FALSE
+#+ include=FALSE
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.align='center')
 
 #+ libs
