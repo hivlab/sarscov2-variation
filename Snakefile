@@ -148,7 +148,7 @@ rule samtools_bam2fq:
 
 rule assemble:
     input: 
-      se = expand("output/{run}/mapped.fq", run = RUN)
+      se = "output/{run}/mapped.fq"
     output: 
       contigs = "output/{run}/final.contigs.fa"
     params:
@@ -167,7 +167,7 @@ rule assemble:
 rule coverage:
     input:
       ref = rules.assemble.output.contigs, 
-      input = expand("output/{run}/mapped.fq", run = RUN) 
+      input = "output/{run}/mapped.fq" 
     output:
       out = temp("output/{run}/final.contigs_aln.sam"),
       covstats = "output/{run}/coverage.txt",
