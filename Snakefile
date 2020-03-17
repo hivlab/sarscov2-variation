@@ -66,6 +66,9 @@ rule preprocess:
     params:
       bbduk = "qtrim=r trimq=10 maq=10 minlen=100",
       seed = config["seed"]
+    resources:
+      runtime = 30,
+      mem_mb = 8000
     threads: 4
     wrapper:
       WRAPPER_PREFIX + "master/preprocess"
@@ -81,6 +84,9 @@ rule bwa_mem_ref:
       db_prefix = REF_GENOME,
       extra = "-L 100,100 -k 15",
       sorting = "samtools"
+    resources:
+      runtime = 30,
+      mem_mb = 16000
     threads: 4
     wrapper:
       "https://raw.githubusercontent.com/tpall/snakemake-wrappers/bug/snakemake_issue145/bio/bwa/mem"
@@ -93,8 +99,11 @@ rule genomecov:
         "output/{run}/genomecov.bg"
     params:
         extra = "-bg"
+    resources:
+      runtime = 20,
+      mem_mb = 16000
     wrapper: 
-        "file:../wrappers/bedtools/genomecov"
+        "file:wrappers/bedtools/genomecov"
 
 
 rule ref_mapped:
@@ -104,6 +113,9 @@ rule ref_mapped:
       "output/{run}/mapped.bam"
     params:
       "-b -F 4"
+    resources:
+      runtime = 20,
+      mem_mb = 8000
     threads: 4
     wrapper:
       "0.49.0/bio/samtools/view"
@@ -118,6 +130,9 @@ rule ref_bam_stats:
     params:
       extra = "-F 4",
       region = ""
+    resources:
+      runtime = 20,
+      mem_mb = 8000
     wrapper:
       "0.42.0/bio/samtools/stats"
 
@@ -128,12 +143,15 @@ rule bcftools_call:
       samples=rules.bwa_mem_ref.output
     output:
       "output/{run}/var_filt.vcf"
+    resources:
+      runtime = 20,
+      mem_mb = 8000
     params:
       mpileup="-Ou",
       call="-Ou -mv",
       filter="-s LowQual -e '%QUAL<20 || DP>100'"
     wrapper:
-      "file:../wrappers/bcftools"
+      "file:wrappers/bcftools"
 
 
 rule samtools_bam2fq:
@@ -141,6 +159,9 @@ rule samtools_bam2fq:
       rules.ref_mapped.output
     output:
       "output/{run}/mapped.fq"
+    resources:
+      runtime = 10,
+      mem_mb = 4000
     threads: 4
     wrapper:
         "0.49.0/bio/samtools/bam2fq/interleaved"
@@ -153,6 +174,9 @@ rule assemble:
       contigs = "output/{run}/final.contigs.fa"
     params:
       extra = "--min-contig-len 500"
+    resources:
+      runtime = 60,
+      mem_mb = 16000
     threads: 4
     shadow: 
       "minimal"
@@ -174,6 +198,9 @@ rule coverage:
       basecov = "output/{run}/basecov.txt"
     params: 
       extra = "nodisk"
+    resources:
+      runtime = 30,
+      mem_mb = 8000
     wrapper:
       WRAPPER_PREFIX + "master/bbmap/bbwrap"
 
@@ -187,6 +214,9 @@ rule report:
     params:
       author = config["author"],
       run = lambda wildcards: wildcards.run
+    resources:
+      runtime = 10,
+      mem_mb = 4000
     wrapper:
-      "file:../wrappers/report"
+      "file:wrappers/report"
 
