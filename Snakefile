@@ -152,7 +152,7 @@ rule assemble:
     output: 
       contigs = "output/{run}/final.contigs.fa"
     params:
-      extra = ""
+      extra = "--min-contig-len 500"
     threads: 4
     shadow: 
       "minimal"
