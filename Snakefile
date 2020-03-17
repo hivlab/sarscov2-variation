@@ -173,7 +173,7 @@ rule assemble:
     output: 
       contigs = "output/{run}/final.contigs.fa"
     params:
-      extra = ""
+      extra = "--min-contig-len 500"
     resources:
       runtime = 60,
       mem_mb = 16000
