@@ -41,8 +41,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/report.html", "output/{run}/final.contigs.fa", "output/{run}/coverage.txt", "output/{run}/basecov.txt", "output/{run}/genomecov.bg"], run = RUN)
-
+    input: expand(["output/{run}/report.html", "output/{run}/genomecov.bg"], run = RUN)
 
 
 def get_fastq(wildcards):
@@ -75,7 +74,7 @@ rule preprocess:
 
 
 # Map reads to ref genome
-rule bwa_mem_ref:
+rule refgenome:
     input:
       reads = [rules.preprocess.output.sampled]
     output:
@@ -94,7 +93,7 @@ rule bwa_mem_ref:
 
 rule genomecov:
     input:
-        ibam = rules.bwa_mem_ref.output
+        ibam = rules.refgenome.output
     output:
         "output/{run}/genomecov.bg"
     params:
@@ -103,28 +102,13 @@ rule genomecov:
       runtime = 20,
       mem_mb = 16000
     wrapper: 
-        "file:wrappers/bedtools/genomecov"
-
-
-rule ref_mapped:
-    input:
-      rules.bwa_mem_ref.output
-    output:
-      "output/{run}/mapped.bam"
-    params:
-      "-b -F 4"
-    resources:
-      runtime = 20,
-      mem_mb = 8000
-    threads: 4
-    wrapper:
-      "0.49.0/bio/samtools/view"
+        "file:../wrappers/bedtools/genomecov"
 
 
 # Host mapping stats.
-rule ref_bam_stats:
+rule bamstats:
     input:
-      rules.bwa_mem_ref.output
+      rules.refgenome.output
     output:
       "output/{run}/bamstats.txt"
     params:
@@ -137,72 +121,21 @@ rule ref_bam_stats:
       "0.42.0/bio/samtools/stats"
 
 
-rule bcftools_call:
+rule var_filt:
     input:
       ref=REF_GENOME,
-      samples=rules.bwa_mem_ref.output
+      samples=rules.refgenome.output
     output:
       "output/{run}/var_filt.vcf"
     resources:
       runtime = 20,
       mem_mb = 8000
     params:
-      mpileup="-Ou",
-      call="-Ou -mv",
-      filter="-s LowQual -e '%QUAL<20 || DP>100'"
+      mpileup = "-Ou",
+      call = "-Ou -mv",
+      filter = "-s LowQual -e '%QUAL<20 || DP>100'"
     wrapper:
-      "file:wrappers/bcftools"
-
-
-rule samtools_bam2fq:
-    input:
-      rules.ref_mapped.output
-    output:
-      "output/{run}/mapped.fq"
-    resources:
-      runtime = 10,
-      mem_mb = 4000
-    threads: 4
-    wrapper:
-        "0.49.0/bio/samtools/bam2fq/interleaved"
-
-
-rule assemble:
-    input: 
-      se = "output/{run}/mapped.fq"
-    output: 
-      contigs = "output/{run}/final.contigs.fa"
-    params:
-      extra = "--min-contig-len 500"
-    resources:
-      runtime = 60,
-      mem_mb = 16000
-    threads: 4
-    shadow: 
-      "minimal"
-    wrapper:
-      WRAPPER_PREFIX + "release/metformin-pill/assembly/megahit"
-
-
-# Calculate assembly coverage stats
-# nodisk keeps index in memory, otherwise index will be written once to project root (ref/1) from first run to be processed 
-# and reused for other unrelated runs.
-# Key "input" will be parsed to "in", "input1" to "in1" etc.
-rule coverage:
-    input:
-      ref = rules.assemble.output.contigs, 
-      input = "output/{run}/mapped.fq" 
-    output:
-      out = temp("output/{run}/final.contigs_aln.sam"),
-      covstats = "output/{run}/coverage.txt",
-      basecov = "output/{run}/basecov.txt"
-    params: 
-      extra = "nodisk"
-    resources:
-      runtime = 30,
-      mem_mb = 8000
-    wrapper:
-      WRAPPER_PREFIX + "master/bbmap/bbwrap"
+      "file:../wrappers/bcftools"
 
 
 rule report:
@@ -218,5 +151,5 @@ rule report:
       runtime = 10,
       mem_mb = 4000
     wrapper:
-      "file:wrappers/report"
+      "file:../wrappers/report"
 

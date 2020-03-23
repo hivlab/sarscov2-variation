@@ -8,13 +8,8 @@
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.align='center')
 
 #+ libs
-library(tidyverse)
-library(here)
-library(knitr)
-library(kableExtra)
-library(formattable)
-library(glue)
-library(plotly)
+pkg <- c("tidyverse", "here", "knitr", "kableExtra", "formattable", "glue", "plotly", "DT")
+invisible(lapply(pkg, library, character.only = TRUE))
 
 #+ parse
 bamstats <- read_lines(bamstats_file)
@@ -84,8 +79,9 @@ ggplotly(agct_plot)
 #' ### Read lengths
 #+ read-length, fig.cap='Read lengths.'
 read_lengths <- parsed_stats[["read_lengths"]] %>% select(-1)
+colnames(read_lengths) <- c("read_length", "count")
 rl_plot <- ggplot(read_lengths) +
-  geom_col(aes(X2, X3)) +
+  geom_col(aes(read_length, count)) +
   labs(x = "Read length", y = "Count") +
   scale_y_log10()
 ggplotly(rl_plot)
@@ -106,8 +102,9 @@ ggplotly(indel_plot)
 #' ### Coverage distribution
 #+ cov-dist, fig.cap='Distribution of the alignment depth per covered reference site.'
 cov_dist <- parsed_stats[["coverage_distribution"]] %>% select(-1)
+colnames(cov_dist) <- c("range", "cov", "sites")
 cov_plot <- cov_dist %>% 
-  ggplot(aes(x=X3, y=X4)) +
+  ggplot(aes(cov, sites)) +
   geom_point() +
   geom_line(aes(group = 1)) +
   labs(x = "Coverage", y = "Sites") +
@@ -115,12 +112,27 @@ cov_plot <- cov_dist %>%
 ggplotly(cov_plot)
 
 #' ## Sequence variants
-#' 
-vcf <- read_tsv(vcf_file, comment = "#", col_names = FALSE)
-colnames(vcf) <- str_split("CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	output/SRR11092064.bam", pattern = "\\s+", simplify = TRUE)
+#+
+parse_vcf_info <- function(x) {
+  description <- map(x, str_extract, '(?<=Description=\\").+?(?=\\")')
+  names(description) <- map(x, str_extract, "(?<=ID\\=)\\w+")
+  str_c(str_c(names(description), str_remove(str_to_lower(description), "\\.$"), sep = ", ", collapse = ". "), ".")
+}
+vcf <- read_tsv(vcf_file, comment = "##")
+comments <- read_lines(vcf_file) %>% 
+  grep("##", ., value = TRUE)
+info <- c("##FILTER", "##INFO", "##FORMAT") %>% 
+  map(~grep(., comments, value = TRUE)) %>% 
+  map(parse_vcf_info) %>% 
+  str_c(collapse = " ")
 vcf %>% 
-  mutate_at("POS", formatC, big.mark=",", format="d") %>% 
-  select(CHROM:INFO) %>% 
-  kable(caption = "Variant calling summary.") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE)
-
+  select(`#CHROM`:INFO) %>% 
+  datatable(
+    rownames = FALSE, 
+    caption = str_c("Table 1. Variant calling summary. ", info),
+    filter = "top", 
+    options = list(
+      pageLength = 20, 
+      autoWidth = TRUE
+      )
+    )
