@@ -41,7 +41,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/report.html", "output/{run}/genomecov.bg"], run = RUN)
+    input: expand(["output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf"], run = RUN)
 
 
 def get_fastq(wildcards):
@@ -121,27 +121,41 @@ rule bamstats:
       "0.42.0/bio/samtools/stats"
 
 
-rule var_filt:
+rule bcftools:
     input:
       ref=REF_GENOME,
       samples=rules.refgenome.output
     output:
-      "output/{run}/var_filt.vcf"
+      "output/{run}/bcftools.vcf"
     resources:
       runtime = 20,
       mem_mb = 8000
     params:
-      mpileup = "-Ou",
+      mpileup = "-Ou --min-MQ 60",
       call = "-Ou -mv",
-      filter = "-s LowQual -e '%QUAL<20 || DP>100'"
+      norm = "-Ou -d all",
+      filter = """-s LowQual -e '%QUAL<20'"""
     wrapper:
       "file:../wrappers/bcftools"
+
+
+rule freebayes:
+    input:
+      ref=REF_GENOME,
+      samples=rules.refgenome.output
+    output:
+        "output/{run}/freebayes.vcf" 
+    params:
+      extra="--ploidy 1"
+    threads: 1
+    wrapper:
+        "0.50.4/bio/freebayes"
 
 
 rule report:
     input:
       bamstats = "output/{run}/bamstats.txt",
-      vcf = "output/{run}/var_filt.vcf"
+      vcf = "output/{run}/bcftools.vcf"
     output:
       "output/{run}/report.html"
     params:
