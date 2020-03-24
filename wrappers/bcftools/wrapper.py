@@ -11,6 +11,7 @@ shell(
     """
     bcftools mpileup {snakemake.params.mpileup} -f {snakemake.input.ref} {snakemake.input.samples} | \
     bcftools call {snakemake.params.call} | \
+    bcftools norm {snakemake.params.norm} -f {snakemake.input.ref} | \
     bcftools filter {snakemake.params.filter} > {snakemake.output[0]}
     """
 )
