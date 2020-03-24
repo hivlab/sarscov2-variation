@@ -149,7 +149,7 @@ rule freebayes:
       extra="--ploidy 1"
     threads: 1
     wrapper:
-        "0.50.4/bio/freebayes"
+        "file:../wrappers/freebayes"
 
 
 rule report:
