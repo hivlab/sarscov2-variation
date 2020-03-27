@@ -41,7 +41,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf"], run = RUN)
+    input: expand(["output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf", "output/{run}/all.vcf", "output/{run}/sample.fq"], run = RUN)
 
 
 def get_fastq(wildcards):
@@ -61,7 +61,7 @@ rule preprocess:
       merged = temp("output/{run}/merged.fq"),
       unmerged = temp("output/{run}/unmerged.fq"),
       trimmed = temp("output/{run}/trimmed.fq"),
-      sampled = temp("output/{run}/sample.fq")
+      sampled = "output/{run}/sample.fq"
     params:
       bbduk = "qtrim=r trimq=10 maq=10 minlen=100",
       seed = config["seed"]
@@ -76,39 +76,85 @@ rule preprocess:
 # Map reads to ref genome
 rule refgenome:
     input:
-      reads = [rules.preprocess.output.sampled]
+      input = [rules.preprocess.output.sampled],
+      ref = REF_GENOME
     output:
-      "output/{run}/refgenome.bam"
+      out = "output/{run}/refgenome.sam",
+      statsfile = "output/{run}/statsfile.txt",
+      bhist = "output/{run}/bhist.txt",
+      qhist = "output/{run}/qhist.txt",
+      aqhist = "output/{run}/aqhist.txt",
+      lhist = "output/{run}/lhist.txt", 
+      ihist = "output/{run}/ihist.txt", 
+      ehist = "output/{run}/ehist.txt", 
+      qahist = "output/{run}/qahist.txt", 
+      indelhist = "output/{run}/indelhist.txt", 
+      mhist = "output/{run}/mhist.txt", 
+      gchist = "output/{run}/gchist.txt", 
+      idhist = "output/{run}/idhist.txt"
     params:
-      db_prefix = REF_GENOME,
-      extra = "-L 100,100 -k 15",
-      sorting = "samtools"
+      extra = "maxlen=600 nodisk"
     resources:
       runtime = 30,
       mem_mb = 16000
     threads: 4
     wrapper:
-      "https://raw.githubusercontent.com/tpall/snakemake-wrappers/bug/snakemake_issue145/bio/bwa/mem"
+      WRAPPER_PREFIX + "master/bbmap/bbwrap"
+
+
+rule samtools_sort:
+    input:
+      rules.refgenome.output.out
+    output:
+      "output/{run}/refgenome.bam"
+    params:
+      "-m 4G"
+    threads: 4 # Samtools takes additional threads through its option -@
+    wrapper:
+        "0.50.4/bio/samtools/sort"
+
+
+rule replace_rg:
+    input:
+      rules.samtools_sort.output
+    output:
+      "output/{run}/refgenome_fixed.bam"
+    params:
+      "RGLB=lib1 RGPL=ILLUMINA RGPU={run} RGSM={run}"
+    wrapper:
+      WRAPPER_PREFIX + "master/picard/addorreplacereadgroups"
+
+
+rule dedup:
+    input: 
+      rules.replace_rg.output
+    output:
+      bam = "output/{run}/refgenome_dedup.bam",
+      metrics = "output/{run}/dedup.metrics"
+    params:
+      extra = "REMOVE_DUPLICATES=TRUE ASSUME_SORTED=TRUE VALIDATION_STRINGENCY=LENIENT"
+    wrapper:
+      "file:../wrappers/picard/markduplicates"
 
 
 rule genomecov:
     input:
-        ibam = rules.refgenome.output
+      ibam = rules.dedup.output.bam
     output:
-        "output/{run}/genomecov.bg"
+      "output/{run}/genomecov.bg"
     params:
-        extra = "-bg"
+      extra = "-bg"
     resources:
       runtime = 20,
       mem_mb = 16000
     wrapper: 
-        "file:../wrappers/bedtools/genomecov"
+      WRAPPER_PREFIX + "master/bedtools/genomecov"
 
 
 # Host mapping stats.
 rule bamstats:
     input:
-      rules.refgenome.output
+      rules.dedup.output.bam
     output:
       "output/{run}/bamstats.txt"
     params:
@@ -124,7 +170,7 @@ rule bamstats:
 rule bcftools:
     input:
       ref=REF_GENOME,
-      samples=rules.refgenome.output
+      samples=rules.dedup.output.bam
     output:
       "output/{run}/bcftools.vcf"
     resources:
@@ -132,30 +178,42 @@ rule bcftools:
       mem_mb = 8000
     params:
       mpileup = "-Ou --min-MQ 60",
-      call = "-Ou -mv",
+      call = "-Ou -mv --ploidy 1",
       norm = "-Ou -d all",
       filter = """-s LowQual -e '%QUAL<20'"""
     wrapper:
-      "file:../wrappers/bcftools"
+      WRAPPER_PREFIX + "master/bcftools"
 
 
 rule freebayes:
     input:
       ref=REF_GENOME,
-      samples=rules.refgenome.output
+      samples=rules.dedup.output.bam
     output:
         "output/{run}/freebayes.vcf" 
     params:
-      extra="--ploidy 1"
+      extra="--ploidy 1",
+      pipe = """| bcftools filter -s LowQual -e '%QUAL<20' """
     threads: 1
     wrapper:
-        "file:../wrappers/freebayes"
+      WRAPPER_PREFIX + "master/freebayes"
+
+
+rule bcftools_concat:
+    input:
+        calls=["output/{run}/bcftools.vcf", "output/{run}/freebayes.vcf"]
+    output:
+        "output/{run}/all.vcf"
+    params:
+        ""  # optional parameters for bcftools concat (except -o)
+    wrapper:
+        "0.50.4/bio/bcftools/concat"
 
 
 rule report:
     input:
       bamstats = "output/{run}/bamstats.txt",
-      vcf = "output/{run}/bcftools.vcf"
+      vcf = "output/{run}/all.vcf"
     output:
       "output/{run}/report.html"
     params:
