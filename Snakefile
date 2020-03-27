@@ -28,7 +28,6 @@ RUN = SAMPLES.index.tolist()
 
 # Path to reference genomes
 REF_GENOME = config["refgenome"]
-TAXON_DB = os.getenv("TAXON_DB")
 
 
 # Wrappers
