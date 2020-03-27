@@ -134,7 +134,7 @@ rule dedup:
     params:
       extra = "REMOVE_DUPLICATES=TRUE ASSUME_SORTED=TRUE VALIDATION_STRINGENCY=LENIENT"
     wrapper:
-      "file:../wrappers/picard/markduplicates"
+      WRAPPER_PREFIX + "master/picard/markduplicates"
 
 
 rule genomecov:
