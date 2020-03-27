@@ -1,4 +1,0 @@
-name: "freebayes"
-description: Call small genomic variants with freebayes.
-authors:
-  - Johannes Köster
