@@ -28,6 +28,8 @@ RUN = SAMPLES.index.tolist()
 
 # Path to reference genomes
 REF_GENOME = config["refgenome"]
+HOST_GENOME = os.environ["REF_GENOME_HUMAN"]
+RRNA_DB = os.environ["SILVA_SSU"]
 
 
 # Wrappers
@@ -40,7 +42,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf", "output/{run}/all.vcf", "output/{run}/sample.fq"], run = RUN)
+    input: expand(["output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf", "output/{run}/all.vcf", "output/{run}/sample.fq", "output/{run}/rrna_statsfile.txt", "output/{run}/host_statsfile.txt"], run = RUN)
 
 
 def get_fastq(wildcards):
@@ -65,8 +67,8 @@ rule preprocess:
       bbduk = "qtrim=r trimq=10 maq=10 minlen=100",
       seed = config["seed"]
     resources:
-      runtime = 30,
-      mem_mb = 8000
+      runtime = 20,
+      mem_mb = 4000
     threads: 4
     wrapper:
       WRAPPER_PREFIX + "master/preprocess"
@@ -92,7 +94,41 @@ rule refgenome:
       gchist = "output/{run}/gchist.txt", 
       idhist = "output/{run}/idhist.txt"
     params:
-      extra = "maxlen=600 nodisk"
+      extra = "maxlen=600 nodisk -Xmx8000m"
+    resources:
+      runtime = 30,
+      mem_mb = 8000
+    threads: 4
+    wrapper:
+      WRAPPER_PREFIX + "master/bbmap/bbwrap"
+
+
+rule rrna:
+    input:
+      input = [rules.preprocess.output.sampled],
+      ref = RRNA_DB
+    output:
+      out = temp("output/{run}/norrna.sam"),
+      statsfile = "output/{run}/rrna_statsfile.txt"
+    params:
+      extra = "maxlen=600 nodisk -Xmx16000m"
+    resources:
+      runtime = 30,
+      mem_mb = 16000
+    threads: 4
+    wrapper:
+      WRAPPER_PREFIX + "master/bbmap/bbwrap"
+
+
+rule host:
+    input:
+      input = [rules.preprocess.output.sampled],
+      ref = HOST_GENOME
+    output:
+      out = temp("output/{run}/host.sam"),
+      statsfile = "output/{run}/host_statsfile.txt"
+    params:
+      extra = "maxlen=600 nodisk -Xmx16000m"
     resources:
       runtime = 30,
       mem_mb = 16000
@@ -150,7 +186,7 @@ rule genomecov:
       WRAPPER_PREFIX + "master/bedtools/genomecov"
 
 
-# Host mapping stats.
+# Host mapping stats
 rule bamstats:
     input:
       rules.dedup.output.bam
@@ -166,6 +202,7 @@ rule bamstats:
       "0.42.0/bio/samtools/stats"
 
 
+# Variant calling
 rule bcftools:
     input:
       ref=REF_GENOME,
@@ -209,6 +246,7 @@ rule bcftools_concat:
         "0.50.4/bio/bcftools/concat"
 
 
+# Parse report
 rule report:
     input:
       bamstats = "output/{run}/bamstats.txt",
