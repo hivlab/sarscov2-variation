@@ -42,7 +42,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf", "output/{run}/all.vcf", "output/{run}/sample.fq", "output/{run}/rrna_statsfile.txt", "output/{run}/host_statsfile.txt"], run = RUN)
+    input: expand(["output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf", "output/{run}/all.vcf", "output/{run}/rrna_statsfile.txt", "output/{run}/host_statsfile.txt"], run = RUN)
 
 
 def get_fastq(wildcards):
@@ -56,28 +56,31 @@ def get_fastq(wildcards):
 
 rule preprocess:
     input:
-      sample = get_fastq
+      in1 = lambda wildcards: get_fastq(wildcards)[0],
+      in2 = lambda wildcards: get_fastq(wildcards)[1]
     output:
-      adapters = temp("output/{run}/adapters.fa"),
-      merged = temp("output/{run}/merged.fq"),
-      unmerged = temp("output/{run}/unmerged.fq"),
-      trimmed = temp("output/{run}/trimmed.fq"),
-      sampled = "output/{run}/sample.fq"
+      out1 = temp("output/{run}/cleaned1.fq"),
+      out2 = temp("output/{run}/cleaned2.fq"),
+      gchist = "output/{run}/pre_gchist.txt",
+      aqhist = "output/{run}/pre_aqhist.txt",
+      lhist = "output/{run}/pre_lhist.txt",
+      mhist = "output/{run}/pre_mhist.txt",
+      bhist = "output/{run}/pre_bhist.txt"
     params:
-      bbduk = "qtrim=r trimq=10 maq=10 minlen=100",
-      seed = config["seed"]
+      extra = "hdist=1 maq=20 tpe tbo -da"
     resources:
       runtime = 20,
       mem_mb = 4000
-    threads: 4
+    log: "output/{run}/bbduk.log"
     wrapper:
-      WRAPPER_PREFIX + "master/preprocess"
+      WRAPPER_PREFIX + "master/bbduk"
 
 
 # Map reads to ref genome
 rule refgenome:
     input:
-      input = [rules.preprocess.output.sampled],
+      in1 = rules.preprocess.output.out1,
+      in2 = rules.preprocess.output.out2,
       ref = REF_GENOME
     output:
       out = "output/{run}/refgenome.sam",
@@ -99,7 +102,8 @@ rule refgenome:
 
 rule rrna:
     input:
-      input = [rules.preprocess.output.sampled],
+      in1 = rules.preprocess.output.out1,
+      in2 = rules.preprocess.output.out2,
       ref = RRNA_DB
     output:
       out = temp("output/{run}/norrna.sam"),
@@ -116,7 +120,8 @@ rule rrna:
 
 rule host:
     input:
-      input = [rules.preprocess.output.sampled],
+      in1 = rules.preprocess.output.out1,
+      in2 = rules.preprocess.output.out2,
       ref = HOST_GENOME
     output:
       out = temp("output/{run}/host.sam"),
