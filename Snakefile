@@ -83,16 +83,10 @@ rule refgenome:
       out = "output/{run}/refgenome.sam",
       statsfile = "output/{run}/statsfile.txt",
       bhist = "output/{run}/bhist.txt",
-      qhist = "output/{run}/qhist.txt",
       aqhist = "output/{run}/aqhist.txt",
       lhist = "output/{run}/lhist.txt", 
-      ihist = "output/{run}/ihist.txt", 
-      ehist = "output/{run}/ehist.txt", 
-      qahist = "output/{run}/qahist.txt", 
-      indelhist = "output/{run}/indelhist.txt", 
       mhist = "output/{run}/mhist.txt", 
-      gchist = "output/{run}/gchist.txt", 
-      idhist = "output/{run}/idhist.txt"
+      gchist = "output/{run}/gchist.txt"
     params:
       extra = "maxlen=600 nodisk -Xmx8000m"
     resources:
@@ -251,6 +245,11 @@ rule report:
     input:
       statsfile = "output/{run}/statsfile.txt",
       gchist = "output/{run}/gchist.txt",
+      aqhist = "output/{run}/aqhist.txt",
+      lhist = "output/{run}/lhist.txt",
+      mhist = "output/{run}/mhist.txt",
+      bhist = "output/{run}/bhist.txt",
+      genomecov = "output/{run}/genomecov.bg",
       vcf = "output/{run}/all.vcf"
     output:
       "output/{run}/report.html"

@@ -16,3 +16,4 @@ dependencies:
   - r-glue
   - pandoc=2.7.3
   - r-dt
+  - r-jcolors
