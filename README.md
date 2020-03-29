@@ -24,7 +24,20 @@ git clone https://github.com/avilab/sarscov2.git .
 
 - Edit `samples.tsv` with full paths to sequencing reads and run names and edit also `config.yaml`.
 
+
+## Download databases
+### Human reference genome
+Run `scripts/download_masked_human_hg19.sh` to download masked human reference genome to filter out reads mapping to the human genome.
+Move `hg19_main_mask_ribo_animal_allplant_allfungus.fa.gz` file in your system where you store databases. 
+Setup environment variable "REF_GENOME_HUMAN_MASKED" pointing to this file or edit "HOST_GENOME" variable in Snakefile.
+
+### Silva small subunit ribosomal database
+Silva small subunit rRNA database is used to estimate rRNA contamination.
+Database file was downloaded from <https://www.arb-silva.de/fileadmin/silva_databases/release_138/Exports/SILVA_138_SSURef_NR99_tax_silva.fasta.gz> and moved to systems' databases folder.
+Setup environment variable "SILVA_SSU" pointing to this file or edit "RRNA_DB" variable in Snakefile.
+
 ## Running
+
 Test run:
 ```bash
 snakemake --use-conda -n
