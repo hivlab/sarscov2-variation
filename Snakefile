@@ -28,7 +28,7 @@ RUN = SAMPLES.index.tolist()
 
 # Path to reference genomes
 REF_GENOME = config["refgenome"]
-HOST_GENOME = os.environ["REF_GENOME_HUMAN"]
+HOST_GENOME = os.environ["REF_GENOME_HUMAN_MASKED"]
 RRNA_DB = os.environ["SILVA_SSU"]
 
 
@@ -249,7 +249,8 @@ rule bcftools_concat:
 # Parse report
 rule report:
     input:
-      bamstats = "output/{run}/bamstats.txt",
+      statsfile = "output/{run}/statsfile.txt",
+      gchist = "output/{run}/gchist.txt",
       vcf = "output/{run}/all.vcf"
     output:
       "output/{run}/report.html"
