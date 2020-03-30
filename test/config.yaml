@@ -14,3 +14,4 @@ email: tapa741@gmail.com
 
 # Ref genome
 refgenome: "../refseq/NC_045512.fa"
+refgenome_name: "NC_045512.2 Wuhan seafood market pneumonia virus isolate Wuhan-Hu-1, complete genome"

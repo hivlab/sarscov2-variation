@@ -18,11 +18,8 @@ validate(config, "schemas/config.schema.yaml")
 
 
 # Load runs and groups
-SAMPLES = pd.read_csv(config["samples"], sep="\s+")
+SAMPLES = pd.read_csv(config["samples"], sep="\s+", dtype=str).set_index(["run"], drop=False)
 validate(SAMPLES, "schemas/samples.schema.yaml")
-SAMPLES = SAMPLES.set_index(
-    ["run"], drop=False
-)
 RUN = SAMPLES.index.tolist()
 
 
@@ -35,6 +32,8 @@ RRNA_DB = os.environ["SILVA_SSU"]
 # Wrappers
 WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers/"
 
+# Report
+report: "report/workflow.rst"
 
 onsuccess:
     email = config["email"]
@@ -42,22 +41,21 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf", "output/{run}/all.vcf", "output/{run}/rrna_statsfile.txt", "output/{run}/host_statsfile.txt"], run = RUN)
+    input: expand(["output/{run}/multiqc.html", "output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf", "output/{run}/rrna_statsfile.txt", "output/{run}/host_statsfile.txt"], run = RUN)
 
 
 def get_fastq(wildcards):
-    paths = list(SAMPLES.loc[wildcards.run, ["fq1", "fq2"]])
+    fastqs = SAMPLES.loc[wildcards.run, ["fq1", "fq2"]].dropna()
     if config["remote"]:
         FTP = FTPRemoteProvider(username="anonymous", password=config["email"])
-        return FTP.remote(paths, immediate_close=True)
+        return {"in1": FTP.remote(fastqs.fq1, immediate_close=True), "in2": FTP.remote(fastqs.fq2, immediate_close=True)}
     else:
-        return paths
+        return {"in1": fastqs.fq1, "in2": fastqs.fq2}
 
 
 rule preprocess:
     input:
-      in1 = lambda wildcards: get_fastq(wildcards)[0],
-      in2 = lambda wildcards: get_fastq(wildcards)[1]
+      unpack(get_fastq)
     output:
       out1 = temp("output/{run}/cleaned1.fq"),
       out2 = temp("output/{run}/cleaned2.fq"),
@@ -171,9 +169,24 @@ rule dedup:
       WRAPPER_PREFIX + "master/picard/markduplicates"
 
 
+rule gatk_bqsr:
+    input:
+        bam = rules.dedup.output.bam,
+        ref = REF_GENOME,
+        known = "../refseq/known.vcf"
+    output:
+        bam = "output/{run}/refgenome_recal.bam"
+    log:
+        "output/{run}/gatk_bqsr.log"
+    params:
+        extra = "--maximum-cycle-value 600",  # optional
+        java_opts = "", # optional
+    wrapper:
+        "0.50.4/bio/gatk/baserecalibrator"
+
 rule genomecov:
     input:
-      ibam = rules.dedup.output.bam
+      ibam = rules.gatk_bqsr.output.bam
     output:
       "output/{run}/genomecov.bg"
     params:
@@ -185,64 +198,36 @@ rule genomecov:
       WRAPPER_PREFIX + "master/bedtools/genomecov"
 
 
-# Host mapping stats
-rule bamstats:
-    input:
-      rules.dedup.output.bam
-    output:
-      "output/{run}/bamstats.txt"
-    params:
-      extra = "-F 4",
-      region = ""
-    resources:
-      runtime = 20,
-      mem_mb = 8000
-    wrapper:
-      "0.42.0/bio/samtools/stats"
-
-
 # Variant calling
-rule bcftools:
-    input:
-      ref=REF_GENOME,
-      samples=rules.dedup.output.bam
-    output:
-      "output/{run}/bcftools.vcf"
-    resources:
-      runtime = 20,
-      mem_mb = 8000
-    params:
-      mpileup = "-Ou --min-MQ 60",
-      call = "-Ou -mv --ploidy 1",
-      norm = "-Ou -d all",
-      filter = """-s LowQual -e '%QUAL<20'"""
-    wrapper:
-      WRAPPER_PREFIX + "master/bcftools"
-
-
 rule freebayes:
     input:
       ref=REF_GENOME,
-      samples=rules.dedup.output.bam
+      samples=rules.gatk_bqsr.output.bam
     output:
         "output/{run}/freebayes.vcf" 
     params:
-      extra="--ploidy 1",
-      pipe = """| bcftools filter -s LowQual -e '%QUAL<20' """
+      extra="--pooled-continuous --ploidy 1",
+      pipe = """| bcftools filter -s LowQual -e '%QUAL<30' """
     threads: 1
     wrapper:
       WRAPPER_PREFIX + "master/freebayes"
 
 
-rule bcftools_concat:
+rule snpeff:
     input:
-        calls=["output/{run}/bcftools.vcf", "output/{run}/freebayes.vcf"]
+        "output/{run}/freebayes.vcf"
     output:
-        "output/{run}/all.vcf"
+        calls = "output/{run}/snpeff.vcf",   # annotated calls (vcf, bcf, or vcf.gz)
+        stats = "output/{run}/snpeff.html",  # summary statistics (in HTML), optional
+        csvstats = "output/{run}/snpeff.csv" # summary statistics in CSV, optional
+    log:
+        "output/{run}/snpeff.log"
     params:
-        ""  # optional parameters for bcftools concat (except -o)
+        data_dir = "data",
+        reference = "NC045512", # reference name (from `snpeff databases`)
+        extra = "-c ../refseq/snpEffect.config -Xmx4g"          # optional parameters (e.g., max memory 4g)
     wrapper:
-        "0.50.4/bio/bcftools/concat"
+        "0.50.4/bio/snpeff"
 
 
 # Parse report
@@ -255,7 +240,7 @@ rule report:
       mhist = "output/{run}/mhist.txt",
       bhist = "output/{run}/bhist.txt",
       genomecov = "output/{run}/genomecov.bg",
-      vcf = "output/{run}/all.vcf"
+      vcf = "output/{run}/freebayes.vcf"
     output:
       "output/{run}/report.html"
     params:
@@ -267,3 +252,39 @@ rule report:
     wrapper:
       "file:../wrappers/report"
 
+# QC
+rule fastqc:
+    input:
+        unpack(get_fastq)
+    output:
+        html="output/{run}/fastqc.html",
+        zip="output/{run}/fastqc.zip"
+    wrapper:
+        "0.27.1/bio/fastqc"
+
+
+# Host mapping stats
+rule bamstats:
+    input:
+      rules.gatk_bqsr.output.bam
+    output:
+      "output/{run}/bamstats.txt"
+    resources:
+      runtime = 20,
+      mem_mb = 8000
+    wrapper:
+      "0.42.0/bio/samtools/stats"
+
+
+rule multiqc:
+    input:
+        "output/{run}/bamstats.txt",
+        "output/{run}/fastqc.zip",
+        "output/{run}/dedup.metrics",
+        "output/{run}/snpeff.csv"
+    output:
+        report("output/{run}/multiqc.html", caption = "report/multiqc.rst", category = "Quality control")
+    log:
+        "output/{run}/multiqc.log"
+    wrapper:
+        "0.27.1/bio/multiqc"
