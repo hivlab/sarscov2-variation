@@ -59,11 +59,11 @@ rule preprocess:
     output:
       out1 = temp("output/{run}/cleaned1.fq"),
       out2 = temp("output/{run}/cleaned2.fq"),
-      gchist = "output/{run}/pre_gchist.txt",
-      aqhist = "output/{run}/pre_aqhist.txt",
-      lhist = "output/{run}/pre_lhist.txt",
-      mhist = "output/{run}/pre_mhist.txt",
-      bhist = "output/{run}/pre_bhist.txt"
+      bhist = "output/{run}/bhist.txt",
+      aqhist = "output/{run}/aqhist.txt",
+      lhist = "output/{run}/lhist.txt", 
+      mhist = "output/{run}/mhist.txt", 
+      gchist = "output/{run}/gchist.txt"
     params:
       extra = "hdist=1 maq=20 tpe tbo -da"
     resources:
@@ -82,12 +82,7 @@ rule refgenome:
       ref = REF_GENOME
     output:
       out = "output/{run}/refgenome.sam",
-      statsfile = "output/{run}/statsfile.txt",
-      bhist = "output/{run}/bhist.txt",
-      aqhist = "output/{run}/aqhist.txt",
-      lhist = "output/{run}/lhist.txt", 
-      mhist = "output/{run}/mhist.txt", 
-      gchist = "output/{run}/gchist.txt"
+      statsfile = "output/{run}/statsfile.txt"
     params:
       extra = "maxlen=600 nodisk -Xmx8000m"
     resources:
@@ -169,24 +164,9 @@ rule dedup:
       WRAPPER_PREFIX + "master/picard/markduplicates"
 
 
-rule gatk_bqsr:
-    input:
-        bam = rules.dedup.output.bam,
-        ref = REF_GENOME,
-        known = "../refseq/known.vcf"
-    output:
-        bam = "output/{run}/refgenome_recal.bam"
-    log:
-        "output/{run}/gatk_bqsr.log"
-    params:
-        extra = "--maximum-cycle-value 600",  # optional
-        java_opts = "", # optional
-    wrapper:
-        "0.50.4/bio/gatk/baserecalibrator"
-
 rule genomecov:
     input:
-      ibam = rules.gatk_bqsr.output.bam
+      ibam = rules.dedup.output.bam
     output:
       "output/{run}/genomecov.bg"
     params:
@@ -202,12 +182,12 @@ rule genomecov:
 rule freebayes:
     input:
       ref=REF_GENOME,
-      samples=rules.gatk_bqsr.output.bam
+      samples=rules.dedup.output.bam
     output:
         "output/{run}/freebayes.vcf" 
     params:
       extra="--pooled-continuous --ploidy 1",
-      pipe = """| bcftools filter -s LowQual -e '%QUAL<30' """
+      pipe = """| vcffilter -f 'QUAL > 20'"""
     threads: 1
     wrapper:
       WRAPPER_PREFIX + "master/freebayes"
@@ -266,7 +246,7 @@ rule fastqc:
 # Host mapping stats
 rule bamstats:
     input:
-      rules.gatk_bqsr.output.bam
+      rules.dedup.output.bam
     output:
       "output/{run}/bamstats.txt"
     resources:
@@ -287,4 +267,4 @@ rule multiqc:
     log:
         "output/{run}/multiqc.log"
     wrapper:
-        "0.27.1/bio/multiqc"
+      WRAPPER_PREFIX + "master/multiqc"
