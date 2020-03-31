@@ -41,7 +41,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/multiqc.html", "output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf", "output/{run}/rrna_statsfile.txt", "output/{run}/host_statsfile.txt"], run = RUN)
+    input: expand(["output/{run}/fastq_screen.txt", "output/{run}/multiqc.html", "output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf"], run = RUN)
 
 
 def get_fastq(wildcards):
@@ -88,42 +88,6 @@ rule refgenome:
     resources:
       runtime = 30,
       mem_mb = 8000
-    threads: 4
-    wrapper:
-      WRAPPER_PREFIX + "master/bbmap/bbwrap"
-
-
-rule rrna:
-    input:
-      in1 = rules.preprocess.output.out1,
-      in2 = rules.preprocess.output.out2,
-      ref = RRNA_DB
-    output:
-      out = temp("output/{run}/norrna.sam"),
-      statsfile = "output/{run}/rrna_statsfile.txt"
-    params:
-      extra = "maxlen=600 nodisk -Xmx16000m"
-    resources:
-      runtime = 30,
-      mem_mb = 16000
-    threads: 4
-    wrapper:
-      WRAPPER_PREFIX + "master/bbmap/bbwrap"
-
-
-rule host:
-    input:
-      in1 = rules.preprocess.output.out1,
-      in2 = rules.preprocess.output.out2,
-      ref = HOST_GENOME
-    output:
-      out = temp("output/{run}/host.sam"),
-      statsfile = "output/{run}/host_statsfile.txt"
-    params:
-      extra = "maxlen=600 nodisk -Xmx16000m"
-    resources:
-      runtime = 30,
-      mem_mb = 16000
     threads: 4
     wrapper:
       WRAPPER_PREFIX + "master/bbmap/bbwrap"
@@ -233,6 +197,27 @@ rule report:
       "file:../wrappers/report"
 
 # QC
+fastq_screen_config = {
+  "database": {
+    "human": HOST_GENOME,
+    "SILVA_138_SSURef_NR99": RRNA_DB,
+    "Sars-Cov2": REF_GENOME
+  }
+}
+rule fastq_screen:
+    input:
+        rules.preprocess.output.out1
+    output:
+        txt = "output/{run}/fastq_screen.txt",
+        png = "output/{run}/fastq_screen.png"
+    params:
+        fastq_screen_config = fastq_screen_config,
+        subset = 100000,
+        aligner = "bwa"
+    threads: 4
+    wrapper:
+        "0.50.4/bio/fastq_screen"
+
 rule fastqc:
     input:
         unpack(get_fastq)
@@ -258,6 +243,7 @@ rule bamstats:
 
 rule multiqc:
     input:
+        "output/{run}/fastq_screen.txt",
         "output/{run}/bamstats.txt",
         "output/{run}/fastqc.zip",
         "output/{run}/dedup.metrics",
