@@ -212,8 +212,7 @@ rule report:
 fastq_screen_config = {
   "database": {
     "human": HOST_GENOME,
-    "SILVA_138_SSURef_NR99": RRNA_DB,
-    "Sars-Cov2": REF_GENOME
+    "SILVA_138_SSURef_NR99": RRNA_DB
   }
 }
 rule fastq_screen:
@@ -224,8 +223,7 @@ rule fastq_screen:
         png = "output/{run}/fastq_screen.png"
     params:
         fastq_screen_config = fastq_screen_config,
-        subset = 100000,
-        aligner = "bwa"
+        subset = 100000
     threads: 4
     wrapper:
         WRAPPER_PREFIX + "master/fastq_screen"
