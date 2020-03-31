@@ -41,7 +41,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/fastq_screen.txt", "output/{run}/multiqc.html", "output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf"], run = RUN)
+    input: expand(["output/{run}/consensus.fa", "output/{run}/fastq_screen.txt", "output/{run}/multiqc.html", "output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf"], run = RUN)
 
 
 def get_fastq(wildcards):
@@ -174,6 +174,18 @@ rule snpeff:
         "0.50.4/bio/snpeff"
 
 
+rule vcf2fasta:
+    input:
+      vcf = "output/{run}/freebayes.vcf",
+      ref=REF_GENOME
+    output:
+      "output/{run}/consensus.fa"
+    params:
+      extra = "-P 1"
+    wrapper:
+      WRAPPER_PREFIX + "master/vcflib/vcf2fasta"
+
+
 # Parse report
 rule report:
     input:
@@ -216,7 +228,8 @@ rule fastq_screen:
         aligner = "bwa"
     threads: 4
     wrapper:
-        "0.50.4/bio/fastq_screen"
+        WRAPPER_PREFIX + "master/fastq_screen"
+
 
 rule fastqc:
     input:
