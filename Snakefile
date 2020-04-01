@@ -100,6 +100,9 @@ rule samtools_sort:
         "output/{run}/refgenome.bam"
     params:
         "-m 4G"
+    resources:
+        runtime = 20,
+        mem_mb = 4000
     threads: 4 # Samtools takes additional threads through its option -@
     wrapper:
         "0.50.4/bio/samtools/sort"
@@ -112,6 +115,9 @@ rule replace_rg:
         "output/{run}/refgenome_fixed.bam"
     params:
         "RGLB=lib1 RGPL=ILLUMINA RGPU={run} RGSM={run}"
+    resources:
+        runtime = 10,
+        mem_mb = 4000
     wrapper:
         WRAPPER_PREFIX + "master/picard/addorreplacereadgroups"
 
@@ -124,6 +130,9 @@ rule dedup:
         metrics = "output/{run}/dedup.metrics"
     params:
         extra = "REMOVE_DUPLICATES=TRUE ASSUME_SORTED=TRUE VALIDATION_STRINGENCY=LENIENT"
+    resources:
+        runtime = 20,
+        mem_mb = 4000    
     wrapper:
         WRAPPER_PREFIX + "master/picard/markduplicates"
 
@@ -152,6 +161,9 @@ rule freebayes:
     params:
         extra="--pooled-continuous --ploidy 1",
         pipe = """| vcffilter -f 'QUAL > 20'"""
+    resources:
+        runtime = 20,
+        mem_mb = 4000
     threads: 1
     wrapper:
         WRAPPER_PREFIX + "master/freebayes"
@@ -170,6 +182,9 @@ rule snpeff:
         data_dir = "data",
         reference = "NC045512", # reference name (from `snpeff databases`)
         extra = "-c ../refseq/snpEffect.config -Xmx4g"          # optional parameters (e.g., max memory 4g)
+    resources:
+        runtime = 20,
+        mem_mb = 4000    
     wrapper:
         "0.50.4/bio/snpeff"
 
@@ -185,6 +200,9 @@ rule referencemaker:
     params:
         refmaker = "--lenient",
         bam = rules.dedup.output.bam
+    resources:
+        runtime = 20,
+        mem_mb = 4000    
     wrapper:
         WRAPPER_PREFIX + "master/gatk/fastaalternatereferencemaker"
 
@@ -227,6 +245,9 @@ rule fastq_screen:
     params:
         fastq_screen_config = fastq_screen_config,
         subset = 100000
+    resources:
+        runtime = 30,
+        mem_mb = 8000    
     threads: 4
     wrapper:
         WRAPPER_PREFIX + "master/fastq_screen"
@@ -238,6 +259,9 @@ rule fastqc:
     output:
         html="output/{run}/fastqc.html",
         zip="output/{run}/fastqc.zip"
+    resources:
+        runtime = 20,
+        mem_mb = 4000    
     wrapper:
         "0.27.1/bio/fastqc"
 
@@ -266,5 +290,8 @@ rule multiqc:
         report("output/{run}/multiqc.html", caption = "report/multiqc.rst", category = "Quality control")
     log:
         "output/{run}/multiqc.log"
+    resources:
+        runtime = 20,
+        mem_mb = 4000    
     wrapper:
       WRAPPER_PREFIX + "master/multiqc"
