@@ -55,51 +55,51 @@ def get_fastq(wildcards):
 
 rule preprocess:
     input:
-      unpack(get_fastq)
+        unpack(get_fastq)
     output:
-      out1 = temp("output/{run}/cleaned1.fq"),
-      out2 = temp("output/{run}/cleaned2.fq"),
-      bhist = "output/{run}/bhist.txt",
-      aqhist = "output/{run}/aqhist.txt",
-      lhist = "output/{run}/lhist.txt", 
-      mhist = "output/{run}/mhist.txt", 
-      gchist = "output/{run}/gchist.txt"
+        out1 = temp("output/{run}/cleaned1.fq"),
+        out2 = temp("output/{run}/cleaned2.fq"),
+        bhist = "output/{run}/bhist.txt",
+        aqhist = "output/{run}/aqhist.txt",
+        lhist = "output/{run}/lhist.txt", 
+        mhist = "output/{run}/mhist.txt", 
+        gchist = "output/{run}/gchist.txt"
     params:
-      extra = "hdist=1 maq=20 tpe tbo -da"
+        extra = "hdist=1 maq=20 tpe tbo -da"
     resources:
-      runtime = 20,
-      mem_mb = 4000
+        runtime = 20,
+        mem_mb = 4000
     log: "output/{run}/bbduk.log"
     wrapper:
-      WRAPPER_PREFIX + "master/bbduk"
+        WRAPPER_PREFIX + "master/bbduk"
 
 
 # Map reads to ref genome
 rule refgenome:
     input:
-      in1 = rules.preprocess.output.out1,
-      in2 = rules.preprocess.output.out2,
-      ref = REF_GENOME
+        in1 = rules.preprocess.output.out1,
+        in2 = rules.preprocess.output.out2,
+        ref = REF_GENOME
     output:
-      out = "output/{run}/refgenome.sam",
-      statsfile = "output/{run}/statsfile.txt"
+        out = "output/{run}/refgenome.sam",
+        statsfile = "output/{run}/statsfile.txt"
     params:
-      extra = "maxlen=600 nodisk -Xmx8000m"
+        extra = "maxlen=600 nodisk -Xmx8000m"
     resources:
-      runtime = 30,
-      mem_mb = 8000
+        runtime = 30,
+        mem_mb = 8000
     threads: 4
     wrapper:
-      WRAPPER_PREFIX + "master/bbmap/bbwrap"
+        WRAPPER_PREFIX + "master/bbmap/bbwrap"
 
 
 rule samtools_sort:
     input:
-      rules.refgenome.output.out
+        rules.refgenome.output.out
     output:
-      "output/{run}/refgenome.bam"
+        "output/{run}/refgenome.bam"
     params:
-      "-m 4G"
+        "-m 4G"
     threads: 4 # Samtools takes additional threads through its option -@
     wrapper:
         "0.50.4/bio/samtools/sort"
@@ -107,54 +107,54 @@ rule samtools_sort:
 
 rule replace_rg:
     input:
-      rules.samtools_sort.output
+        rules.samtools_sort.output
     output:
-      "output/{run}/refgenome_fixed.bam"
+        "output/{run}/refgenome_fixed.bam"
     params:
-      "RGLB=lib1 RGPL=ILLUMINA RGPU={run} RGSM={run}"
+        "RGLB=lib1 RGPL=ILLUMINA RGPU={run} RGSM={run}"
     wrapper:
-      WRAPPER_PREFIX + "master/picard/addorreplacereadgroups"
+        WRAPPER_PREFIX + "master/picard/addorreplacereadgroups"
 
 
 rule dedup:
     input: 
-      rules.replace_rg.output
+        rules.replace_rg.output
     output:
-      bam = "output/{run}/refgenome_dedup.bam",
-      metrics = "output/{run}/dedup.metrics"
+        bam = "output/{run}/refgenome_dedup.bam",
+        metrics = "output/{run}/dedup.metrics"
     params:
-      extra = "REMOVE_DUPLICATES=TRUE ASSUME_SORTED=TRUE VALIDATION_STRINGENCY=LENIENT"
+        extra = "REMOVE_DUPLICATES=TRUE ASSUME_SORTED=TRUE VALIDATION_STRINGENCY=LENIENT"
     wrapper:
-      WRAPPER_PREFIX + "master/picard/markduplicates"
+        WRAPPER_PREFIX + "master/picard/markduplicates"
 
 
 rule genomecov:
     input:
-      ibam = rules.dedup.output.bam
+        ibam = rules.dedup.output.bam
     output:
-      "output/{run}/genomecov.bg"
+        "output/{run}/genomecov.bg"
     params:
-      extra = "-bg"
+        extra = "-bg"
     resources:
-      runtime = 20,
-      mem_mb = 16000
+        runtime = 20,
+        mem_mb = 16000
     wrapper: 
-      WRAPPER_PREFIX + "master/bedtools/genomecov"
+        WRAPPER_PREFIX + "master/bedtools/genomecov"
 
 
 # Variant calling
 rule freebayes:
     input:
-      ref=REF_GENOME,
-      samples=rules.dedup.output.bam
+        ref=REF_GENOME,
+        samples=rules.dedup.output.bam
     output:
         "output/{run}/freebayes.vcf" 
     params:
-      extra="--pooled-continuous --ploidy 1",
-      pipe = """| vcffilter -f 'QUAL > 20'"""
+        extra="--pooled-continuous --ploidy 1",
+        pipe = """| vcffilter -f 'QUAL > 20'"""
     threads: 1
     wrapper:
-      WRAPPER_PREFIX + "master/freebayes"
+        WRAPPER_PREFIX + "master/freebayes"
 
 
 rule snpeff:
@@ -176,47 +176,47 @@ rule snpeff:
 
 rule referencemaker:
     input:
-      vcf = "output/{run}/freebayes.vcf",
-      ref = REF_GENOME
+        vcf = "output/{run}/freebayes.vcf",
+        ref = REF_GENOME
     output:
-      idx = temp("output/{run}/freebayes.vcf.idx"),
-      fasta = "output/{run}/consensus.fa",
-      dic = "output/{run}/consensus.dict"
+        idx = temp("output/{run}/freebayes.vcf.idx"),
+        fasta = "output/{run}/consensus.fa",
+        dic = "output/{run}/consensus.dict"
     params:
-      refmaker = "--lenient",
-      bam = rules.dedup.output.bam
+        refmaker = "--lenient",
+        bam = rules.dedup.output.bam
     wrapper:
-      WRAPPER_PREFIX + "master/gatk/fastaalternatereferencemaker"
+        WRAPPER_PREFIX + "master/gatk/fastaalternatereferencemaker"
 
 
 # Parse report
 rule report:
     input:
-      statsfile = "output/{run}/statsfile.txt",
-      gchist = "output/{run}/gchist.txt",
-      aqhist = "output/{run}/aqhist.txt",
-      lhist = "output/{run}/lhist.txt",
-      mhist = "output/{run}/mhist.txt",
-      bhist = "output/{run}/bhist.txt",
-      genomecov = "output/{run}/genomecov.bg",
-      vcf = "output/{run}/freebayes.vcf"
+        statsfile = "output/{run}/statsfile.txt",
+        gchist = "output/{run}/gchist.txt",
+        aqhist = "output/{run}/aqhist.txt",
+        lhist = "output/{run}/lhist.txt",
+        mhist = "output/{run}/mhist.txt",
+        bhist = "output/{run}/bhist.txt",
+        genomecov = "output/{run}/genomecov.bg",
+        vcf = "output/{run}/freebayes.vcf"
     output:
-      "output/{run}/report.html"
+        "output/{run}/report.html"
     params:
-      author = config["author"],
-      run = lambda wildcards: wildcards.run
+        author = config["author"],
+        run = lambda wildcards: wildcards.run
     resources:
-      runtime = 10,
-      mem_mb = 4000
+        runtime = 10,
+        mem_mb = 4000
     wrapper:
-      "file:../wrappers/report"
+        "file:wrappers/report"
 
 # QC
 fastq_screen_config = {
-  "database": {
-    "human": HOST_GENOME,
-    "SILVA_138_SSURef_NR99": RRNA_DB
-  }
+    "database": {
+        "human": HOST_GENOME,
+        "SILVA_138_SSURef_NR99": RRNA_DB
+    }
 }
 rule fastq_screen:
     input:
@@ -245,14 +245,14 @@ rule fastqc:
 # Host mapping stats
 rule bamstats:
     input:
-      rules.dedup.output.bam
+        rules.dedup.output.bam
     output:
-      "output/{run}/bamstats.txt"
+        "output/{run}/bamstats.txt"
     resources:
-      runtime = 20,
-      mem_mb = 8000
+        runtime = 20,
+        mem_mb = 8000
     wrapper:
-      "0.42.0/bio/samtools/stats"
+        "0.42.0/bio/samtools/stats"
 
 
 rule multiqc:
