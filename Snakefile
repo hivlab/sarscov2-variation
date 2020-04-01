@@ -69,7 +69,8 @@ rule preprocess:
     resources:
         runtime = 20,
         mem_mb = 4000
-    log: "output/{run}/bbduk.log"
+    log: 
+        "output/{run}/log/bbduk.log"
     wrapper:
         WRAPPER_PREFIX + "master/bbduk"
 
@@ -175,9 +176,10 @@ rule snpeff:
     output:
         calls = "output/{run}/snpeff.vcf",   # annotated calls (vcf, bcf, or vcf.gz)
         stats = "output/{run}/snpeff.html",  # summary statistics (in HTML), optional
-        csvstats = "output/{run}/snpeff.csv" # summary statistics in CSV, optional
+        csvstats = "output/{run}/snpeff.csv", # summary statistics in CSV, optional
+        genes = "output/{run}/snpeff.genes.txt"
     log:
-        "output/{run}/snpeff.log"
+        "output/{run}/log/snpeff.log"
     params:
         data_dir = "data",
         reference = "NC045512", # reference name (from `snpeff databases`)
@@ -196,7 +198,8 @@ rule referencemaker:
     output:
         idx = temp("output/{run}/freebayes.vcf.idx"),
         fasta = "output/{run}/consensus.fa",
-        dic = "output/{run}/consensus.dict"
+        dic = "output/{run}/consensus.dict",
+        fai = "output/{run}/consensus.fa.fai"
     params:
         refmaker = "--lenient",
         bam = rules.dedup.output.bam
@@ -289,7 +292,7 @@ rule multiqc:
     output:
         report("output/{run}/multiqc.html", caption = "report/multiqc.rst", category = "Quality control")
     log:
-        "output/{run}/multiqc.log"
+        "output/{run}/log/multiqc.log"
     resources:
         runtime = 20,
         mem_mb = 4000    
