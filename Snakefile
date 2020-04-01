@@ -18,22 +18,22 @@ validate(config, "schemas/config.schema.yaml")
 
 
 # Load runs and groups
-SAMPLES = pd.read_csv(config["samples"], sep="\s+")
+SAMPLES = pd.read_csv(config["samples"], sep="\s+", dtype=str).set_index(["run"], drop=False)
 validate(SAMPLES, "schemas/samples.schema.yaml")
-SAMPLES = SAMPLES.set_index(
-    ["run"], drop=False
-)
 RUN = SAMPLES.index.tolist()
 
 
 # Path to reference genomes
 REF_GENOME = config["refgenome"]
-TAXON_DB = os.getenv("TAXON_DB")
+HOST_GENOME = os.environ["REF_GENOME_HUMAN_MASKED"]
+RRNA_DB = os.environ["SILVA_SSU"]
 
 
 # Wrappers
 WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers/"
 
+# Report
+report: "report/workflow.rst"
 
 onsuccess:
     email = config["email"]
@@ -41,182 +41,260 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/report.html", "output/{run}/final.contigs.fa", "output/{run}/coverage.txt", "output/{run}/basecov.txt", "output/{run}/genomecov.bg"], run = RUN)
-
+    input: expand(["output/{run}/consensus.fa", "output/{run}/fastq_screen.txt", "output/{run}/multiqc.html", "output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf"], run = RUN)
 
 
 def get_fastq(wildcards):
-    paths = list(SAMPLES.loc[wildcards.run, ["fq1", "fq2"]])
+    fastqs = SAMPLES.loc[wildcards.run, ["fq1", "fq2"]].dropna()
     if config["remote"]:
         FTP = FTPRemoteProvider(username="anonymous", password=config["email"])
-        return FTP.remote(paths, immediate_close=True)
+        return {"in1": FTP.remote(fastqs.fq1, immediate_close=True), "in2": FTP.remote(fastqs.fq2, immediate_close=True)}
     else:
-        return paths
+        return {"in1": fastqs.fq1, "in2": fastqs.fq2}
 
 
 rule preprocess:
     input:
-      sample = get_fastq
+        unpack(get_fastq)
     output:
-      adapters = temp("output/{run}/adapters.fa"),
-      merged = temp("output/{run}/merged.fq"),
-      unmerged = temp("output/{run}/unmerged.fq"),
-      trimmed = temp("output/{run}/trimmed.fq"),
-      sampled = temp("output/{run}/sample.fq")
+        out1 = temp("output/{run}/cleaned1.fq"),
+        out2 = temp("output/{run}/cleaned2.fq"),
+        bhist = "output/{run}/bhist.txt",
+        aqhist = "output/{run}/aqhist.txt",
+        lhist = "output/{run}/lhist.txt", 
+        mhist = "output/{run}/mhist.txt", 
+        gchist = "output/{run}/gchist.txt"
     params:
-      bbduk = "qtrim=r trimq=10 maq=10 minlen=100",
-      seed = config["seed"]
+        extra = "hdist=1 maq=20 tpe tbo -da"
     resources:
-      runtime = 30,
-      mem_mb = 8000
-    threads: 4
+        runtime = 20,
+        mem_mb = 4000
+    log: 
+        "output/{run}/log/bbduk.log"
     wrapper:
-      WRAPPER_PREFIX + "master/preprocess"
+        WRAPPER_PREFIX + "master/bbduk"
 
 
 # Map reads to ref genome
-rule bwa_mem_ref:
+rule refgenome:
     input:
-      reads = [rules.preprocess.output.sampled]
+        in1 = rules.preprocess.output.out1,
+        in2 = rules.preprocess.output.out2,
+        ref = REF_GENOME
     output:
-      "output/{run}/refgenome.bam"
+        out = "output/{run}/refgenome.sam",
+        statsfile = "output/{run}/statsfile.txt"
     params:
-      db_prefix = REF_GENOME,
-      extra = "-L 100,100 -k 15",
-      sorting = "samtools"
+        extra = "maxlen=600 nodisk -Xmx8000m"
     resources:
-      runtime = 30,
-      mem_mb = 16000
+        runtime = 30,
+        mem_mb = 8000
     threads: 4
     wrapper:
-      "https://raw.githubusercontent.com/tpall/snakemake-wrappers/bug/snakemake_issue145/bio/bwa/mem"
+        WRAPPER_PREFIX + "master/bbmap/bbwrap"
+
+
+rule samtools_sort:
+    input:
+        rules.refgenome.output.out
+    output:
+        "output/{run}/refgenome.bam"
+    params:
+        "-m 4G"
+    resources:
+        runtime = 20,
+        mem_mb = 4000
+    threads: 4 # Samtools takes additional threads through its option -@
+    wrapper:
+        "0.50.4/bio/samtools/sort"
+
+
+rule replace_rg:
+    input:
+        rules.samtools_sort.output
+    output:
+        "output/{run}/refgenome_fixed.bam"
+    params:
+        "RGLB=lib1 RGPL=ILLUMINA RGPU={run} RGSM={run}"
+    resources:
+        runtime = 10,
+        mem_mb = 4000
+    wrapper:
+        WRAPPER_PREFIX + "master/picard/addorreplacereadgroups"
+
+
+rule dedup:
+    input: 
+        rules.replace_rg.output
+    output:
+        bam = "output/{run}/refgenome_dedup.bam",
+        metrics = "output/{run}/dedup.metrics"
+    params:
+        extra = "REMOVE_DUPLICATES=TRUE ASSUME_SORTED=TRUE VALIDATION_STRINGENCY=LENIENT"
+    resources:
+        runtime = 20,
+        mem_mb = 4000    
+    wrapper:
+        WRAPPER_PREFIX + "master/picard/markduplicates"
 
 
 rule genomecov:
     input:
-        ibam = rules.bwa_mem_ref.output
+        ibam = rules.dedup.output.bam
     output:
         "output/{run}/genomecov.bg"
     params:
         extra = "-bg"
     resources:
-      runtime = 20,
-      mem_mb = 16000
+        runtime = 20,
+        mem_mb = 16000
     wrapper: 
-        "file:wrappers/bedtools/genomecov"
+        WRAPPER_PREFIX + "master/bedtools/genomecov"
 
 
-rule ref_mapped:
+# Variant calling
+rule freebayes:
     input:
-      rules.bwa_mem_ref.output
+        ref=REF_GENOME,
+        samples=rules.dedup.output.bam
     output:
-      "output/{run}/mapped.bam"
+        "output/{run}/freebayes.vcf" 
     params:
-      "-b -F 4"
+        extra="--pooled-continuous --ploidy 1",
+        pipe = """| vcffilter -f 'QUAL > 20'"""
     resources:
-      runtime = 20,
-      mem_mb = 8000
-    threads: 4
+        runtime = 20,
+        mem_mb = 4000
+    threads: 1
     wrapper:
-      "0.49.0/bio/samtools/view"
+        WRAPPER_PREFIX + "master/freebayes"
 
 
-# Host mapping stats.
-rule ref_bam_stats:
+rule snpeff:
     input:
-      rules.bwa_mem_ref.output
+        "output/{run}/freebayes.vcf"
     output:
-      "output/{run}/bamstats.txt"
+        calls = "output/{run}/snpeff.vcf",   # annotated calls (vcf, bcf, or vcf.gz)
+        stats = "output/{run}/snpeff.html",  # summary statistics (in HTML), optional
+        csvstats = "output/{run}/snpeff.csv", # summary statistics in CSV, optional
+        genes = "output/{run}/snpeff.genes.txt"
+    log:
+        "output/{run}/log/snpeff.log"
     params:
-      extra = "-F 4",
-      region = ""
+        data_dir = "data",
+        reference = "NC045512", # reference name (from `snpeff databases`)
+        extra = "-c ../refseq/snpEffect.config -Xmx4g"          # optional parameters (e.g., max memory 4g)
     resources:
-      runtime = 20,
-      mem_mb = 8000
+        runtime = 20,
+        mem_mb = 4000    
     wrapper:
-      "0.42.0/bio/samtools/stats"
+        "0.50.4/bio/snpeff"
 
 
-rule bcftools_call:
+rule referencemaker:
     input:
-      ref=REF_GENOME,
-      samples=rules.bwa_mem_ref.output
+        vcf = "output/{run}/freebayes.vcf",
+        ref = REF_GENOME
     output:
-      "output/{run}/var_filt.vcf"
-    resources:
-      runtime = 20,
-      mem_mb = 8000
+        idx = temp("output/{run}/freebayes.vcf.idx"),
+        fasta = "output/{run}/consensus.fa",
+        dic = "output/{run}/consensus.dict",
+        fai = "output/{run}/consensus.fa.fai"
     params:
-      mpileup="-Ou",
-      call="-Ou -mv",
-      filter="-s LowQual -e '%QUAL<20 || DP>100'"
-    wrapper:
-      "file:wrappers/bcftools"
-
-
-rule samtools_bam2fq:
-    input:
-      rules.ref_mapped.output
-    output:
-      "output/{run}/mapped.fq"
+        refmaker = "--lenient",
+        bam = rules.dedup.output.bam
     resources:
-      runtime = 10,
-      mem_mb = 4000
-    threads: 4
+        runtime = 20,
+        mem_mb = 4000    
     wrapper:
-        "0.49.0/bio/samtools/bam2fq/interleaved"
+        WRAPPER_PREFIX + "master/gatk/fastaalternatereferencemaker"
 
 
-rule assemble:
-    input: 
-      se = "output/{run}/mapped.fq"
-    output: 
-      contigs = "output/{run}/final.contigs.fa"
-    params:
-      extra = "--min-contig-len 500"
-    resources:
-      runtime = 60,
-      mem_mb = 16000
-    threads: 4
-    shadow: 
-      "minimal"
-    wrapper:
-      WRAPPER_PREFIX + "release/metformin-pill/assembly/megahit"
-
-
-# Calculate assembly coverage stats
-# nodisk keeps index in memory, otherwise index will be written once to project root (ref/1) from first run to be processed 
-# and reused for other unrelated runs.
-# Key "input" will be parsed to "in", "input1" to "in1" etc.
-rule coverage:
-    input:
-      ref = rules.assemble.output.contigs, 
-      input = "output/{run}/mapped.fq" 
-    output:
-      out = temp("output/{run}/final.contigs_aln.sam"),
-      covstats = "output/{run}/coverage.txt",
-      basecov = "output/{run}/basecov.txt"
-    params: 
-      extra = "nodisk"
-    resources:
-      runtime = 30,
-      mem_mb = 8000
-    wrapper:
-      WRAPPER_PREFIX + "master/bbmap/bbwrap"
-
-
+# Parse report
 rule report:
     input:
-      bamstats = "output/{run}/bamstats.txt",
-      vcf = "output/{run}/var_filt.vcf"
+        statsfile = "output/{run}/statsfile.txt",
+        gchist = "output/{run}/gchist.txt",
+        aqhist = "output/{run}/aqhist.txt",
+        lhist = "output/{run}/lhist.txt",
+        mhist = "output/{run}/mhist.txt",
+        bhist = "output/{run}/bhist.txt",
+        genomecov = "output/{run}/genomecov.bg",
+        vcf = "output/{run}/freebayes.vcf"
     output:
-      "output/{run}/report.html"
+        "output/{run}/report.html"
     params:
-      author = config["author"],
-      run = lambda wildcards: wildcards.run
+        author = config["author"],
+        run = lambda wildcards: wildcards.run
     resources:
-      runtime = 10,
-      mem_mb = 4000
+        runtime = 10,
+        mem_mb = 4000
     wrapper:
-      "file:wrappers/report"
+        "file:wrappers/report"
 
+# QC
+fastq_screen_config = {
+    "database": {
+        "human": HOST_GENOME,
+        "SILVA_138_SSURef_NR99": RRNA_DB
+    }
+}
+rule fastq_screen:
+    input:
+        rules.preprocess.output.out1
+    output:
+        txt = "output/{run}/fastq_screen.txt",
+        png = "output/{run}/fastq_screen.png"
+    params:
+        fastq_screen_config = fastq_screen_config,
+        subset = 100000
+    resources:
+        runtime = 30,
+        mem_mb = 8000    
+    threads: 4
+    wrapper:
+        WRAPPER_PREFIX + "master/fastq_screen"
+
+
+rule fastqc:
+    input:
+        unpack(get_fastq)
+    output:
+        html="output/{run}/fastqc.html",
+        zip="output/{run}/fastqc.zip"
+    resources:
+        runtime = 20,
+        mem_mb = 4000    
+    wrapper:
+        "0.27.1/bio/fastqc"
+
+
+# Host mapping stats
+rule bamstats:
+    input:
+        rules.dedup.output.bam
+    output:
+        "output/{run}/bamstats.txt"
+    resources:
+        runtime = 20,
+        mem_mb = 8000
+    wrapper:
+        "0.42.0/bio/samtools/stats"
+
+
+rule multiqc:
+    input:
+        "output/{run}/fastq_screen.txt",
+        "output/{run}/bamstats.txt",
+        "output/{run}/fastqc.zip",
+        "output/{run}/dedup.metrics",
+        "output/{run}/snpeff.csv"
+    output:
+        report("output/{run}/multiqc.html", caption = "report/multiqc.rst", category = "Quality control")
+    log:
+        "output/{run}/log/multiqc.log"
+    resources:
+        runtime = 20,
+        mem_mb = 4000    
+    wrapper:
+      WRAPPER_PREFIX + "master/multiqc"

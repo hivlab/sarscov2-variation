@@ -3,3 +3,6 @@ test/logs
 test/output
 .Rproj.user
 *.Rproj
+.Rhistory
+*.DS_Store
+.vscode

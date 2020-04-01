@@ -4,35 +4,19 @@
 #' date: "`r Sys.Date()`"
 #' ---
 
+
 #+ include=FALSE
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.align='center')
 
-#+ libs
-library(tidyverse)
-library(here)
-library(knitr)
-library(kableExtra)
-library(formattable)
-library(glue)
-library(plotly)
 
-#+ parse
-bamstats <- read_lines(bamstats_file)
-vars <- str_subset(bamstats, "^#.*Use") %>%
-  str_extract("^[^.]+") %>%
-  str_replace("# ", "")
-var_regex <- bamstats %>%
-  str_subset("^#.*Use") %>%
-  str_extract("\\^[A-Z]{2,3}")
-values <- var_regex %>%
-  map(~str_subset(bamstats, .x)) %>%
-  map(str_c, collapse="\n")
-names(values) <- vars %>%
-  str_to_lower() %>%
-  str_replace_all("[ -]+", "_")
-parsed_stats <- values %>%
-  keep(~str_length(.x) != 0) %>%
-  map(~as_tibble(read.csv(text = .x, header = FALSE, sep = "\t")))
+#+ libs
+pkg <- c("dplyr", "readr", "purrr", "tidyr", "stringr", "here", "knitr", "kableExtra", "formattable", "glue", "plotly", "DT", "jcolors")
+invisible(lapply(pkg, library, character.only = TRUE))
+
+
+#+ options
+
+
 
 #' ## Refseq
 #' 
@@ -41,86 +25,144 @@ parsed_stats <- values %>%
 #'    - 29903 bp, ss-RNA, linear, VRL, 28-JAN-2020
 #'
 
+
 #+ bam-stats-chapter, results='asis'
 tabset <- "{.tabset .tabset-fade}"
 glue("## {run} alignment to refseq {tabset}")
 #' 
- 
+
 
 #' ### Summary numbers
 #+ summary-nums
-summary_nums <- parsed_stats[["summary_numbers"]] %>% select(-1)
-colnames(summary_nums) <- c("key", "value")
+statsfile <- read_lines(statsfile)
+reads_used <- statsfile[1] %>% 
+  str_split("\\t", simplify = TRUE) %>% 
+  str_trim() %>% 
+  str_c(collapse = " ") %>% 
+  str_to_sentence() %>% 
+  str_c(".")
+summary_nums <- statsfile[str_which(statsfile, "mapped"):length(statsfile)] %>% 
+  str_subset("^(?![\\s\\S])", negate = TRUE) %>% 
+  str_c(collapse = "\n") %>% 
+  read_tsv(col_names = FALSE)
+colnames(summary_nums) <- c("variable", "% reads", "num reads", "% bases", "num bases")
 summary_nums %>%
-  filter(value > 0) %>% 
-  mutate_at("value", formatC, big.mark=",", format="d") %>% 
-  kable(caption = "Summary numbers.") %>%
+  kable(caption = glue("Summary of alignment of {run} to refseq. {reads_used}")) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE)
+
 
 #' ### GC content
 #+ gc-first-fragments, fig.cap='GC content of first fragments.'
-gc_cont <- parsed_stats[["gc_content_of_first_fragments"]]
-gc_plot <- tibble(x=gc_cont[[2]], y=gc_cont[[3]]) %>% 
+gc_cont <- read_delim(gchist, comment = "#", delim = "\t", col_names = c("GC",	"Count"))
+gc_plot <- gc_cont %>% 
+  filter(Count > 0) %>% 
+  mutate(Fraction = (Count / sum(Count)) * 100) %>% 
   ggplot() +
-  geom_line(aes(x, y, group = 1)) +
-  labs(x = "GC%", y = "First fragments")
+  geom_line(aes(GC, Fraction, group = 1)) +
+  labs(x = "GC%", y = "Reads %")
 ggplotly(gc_plot)
 
 
-#' ### AGCT content
-#+ acgt-content, fig.cap='AGCT content per cycle.'
-agct_cycle <- parsed_stats[["acgt_content_per_cycle"]] %>% select(-1)
-colnames(agct_cycle) <- c("cycle", LETTERS[c(1, 3, 7, 20)], "N", "O")
-agct_plot <- agct_cycle %>% 
-  pivot_longer(c("A", "C", "G", "T", "N", "O")) %>% 
-  filter(name %in% c("A", "C", "G", "T")) %>% 
+#' ### Average read quality
+#+ aqhist, fig.cap='Histogram of average read quality.'
+aq_reads <- read_delim(aqhist, comment = "#", delim = "\t", col_names = c("Quality", "Count", "Fraction"))
+aq_plot <- aq_reads %>% 
+  filter(Count > 0) %>% 
+  mutate(Fraction = Fraction * 100) %>% 
   ggplot() +
-  geom_tile(aes(name, cycle, fill=value)) +
-  labs(y = "Cycle") +
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank())
-ggplotly(agct_plot)
+  geom_line(aes(Quality, Fraction, group = 1)) +
+  labs(x = "Average quality", y = "Reads %")
+ggplotly(aq_plot)
+
 
 #' ### Read lengths
 #+ read-length, fig.cap='Read lengths.'
-read_lengths <- parsed_stats[["read_lengths"]] %>% select(-1)
-rl_plot <- ggplot(read_lengths) +
-  geom_col(aes(X2, X3)) +
-  labs(x = "Read length", y = "Count") +
-  scale_y_log10()
-ggplotly(rl_plot)
-
-#' ### In/del distribution
-#+ indel-dist, fig.cap='In/del distribution.'
-indel_dist <- parsed_stats[["indel_distribution"]] %>% select(-1)
-colnames(indel_dist) <- c("length", "ins", "del")
-indel_plot <- indel_dist %>% 
-  pivot_longer(c("ins", "del")) %>% 
-  mutate_at("name", factor, levels = c("ins", "del")) %>% 
+read_length <- read_delim(lhist, comment = "#", delim = "\t", col_names = c("Length", "Count"))
+length_plot <- read_length %>% 
+  filter(Count > 0) %>% 
+  mutate(Fraction = (Count / sum(Count)) * 100) %>% 
   ggplot() +
-  geom_col(aes(length, value)) +
-  facet_wrap(~name) +
-  labs(x = "Length", y = "Count")
-ggplotly(indel_plot)
+  geom_line(aes(Length, Fraction, group = 1)) +
+  labs(y = "Reads %")
+ggplotly(length_plot)
+
+
+#' ### Quality boxplot
+#+ bqcomp, fig.cap='Distribution of quality score by position.'
+# bq_comp <- read_delim(bqhist, comment = "#", delim = "\t", col_names = c("Pos", "A", "C", "G", "T", "N"))
+# base_plot <- base_comp %>% 
+#   pivot_longer(c("A", "C", "G", "T", "N")) %>% 
+#   mutate(value = value * 100) %>% 
+#   ggplot() +
+#   geom_col(aes(Pos, value, fill = name)) +
+#   labs(y = "Reads %", x = "Base position") +
+#   theme(legend.title = element_blank()) +
+#   scale_color_jcolors(palette = "pal3")
+# base_plot
+
+
+#' ### Base composition
+#+ base-comp, fig.cap='Distribution of base composition by position.'
+base_comp <- read_delim(bhist, comment = "#", delim = "\t", col_names = c("Pos", "A", "C", "G", "T", "N"))
+base_plot <- base_comp %>% 
+  pivot_longer(c("A", "C", "G", "T", "N")) %>% 
+  ggplot() +
+  geom_col(aes(Pos, value, fill = name)) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(y = "Reads %", x = "Base position") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom") +
+  scale_color_jcolors(palette = "pal3")
+base_plot
+
+
+#' ### Mutations distribution
+#+ mut-dist, fig.cap='Mutations distribution.'
+indel_dist <- read_delim(mhist, comment = "#", delim = "\t", col_names = c("BaseNum",	"Match",	"Sub",	"Del",	"Ins",	"N",	"Other"))
+indel_plot <- indel_dist %>% 
+  pivot_longer(c("Match",	"Sub",	"Del",	"Ins",	"N",	"Other")) %>% 
+  mutate_at("name", factor, levels = c("Match",	"Sub",	"Del",	"Ins",	"N",	"Other")) %>% 
+  ggplot() +
+  geom_col(aes(BaseNum, value, fill = name)) +
+  labs(y = "Reads %", x = "Base position") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom") +
+  scale_color_jcolors(palette = "pal3")
+indel_plot
 
 #' ### Coverage distribution
 #+ cov-dist, fig.cap='Distribution of the alignment depth per covered reference site.'
-cov_dist <- parsed_stats[["coverage_distribution"]] %>% select(-1)
-cov_plot <- cov_dist %>% 
-  ggplot(aes(x=X3, y=X4)) +
-  geom_point() +
-  geom_line(aes(group = 1)) +
-  labs(x = "Coverage", y = "Sites") +
-  scale_x_log10()
+genomecov <- read_delim(genomecov, comment = "#", delim = "\t", col_names = c("Ref",	"Start",	"End",	"Coverage"))
+cov_plot <- genomecov %>% 
+  pivot_longer(c("Start",	"End"), values_to = "Pos") %>% 
+  ggplot(aes(Pos, Coverage)) +
+  geom_line() +
+  scale_y_log10() +
+  scale_x_continuous(limits = c(0, 29903))
 ggplotly(cov_plot)
 
 #' ## Sequence variants
-#' 
-vcf <- read_tsv(vcf_file, comment = "#", col_names = FALSE)
-colnames(vcf) <- str_split("CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	output/SRR11092064.bam", pattern = "\\s+", simplify = TRUE)
+#+
+parse_vcf_info <- function(x) {
+  description <- map(x, str_extract, '(?<=Description=\\").+?(?=\\")')
+  names(description) <- map(x, str_extract, "(?<=ID\\=)\\w+")
+  str_c(str_c(names(description), str_remove(str_to_lower(description), "\\.$"), sep = ", ", collapse = ". "), ".")
+}
+vcf <- read_tsv(vcf_file, comment = "##")
+comments <- read_lines(vcf_file) %>% 
+  grep("##", ., value = TRUE)
+info <- c("##FILTER", "##INFO", "##FORMAT") %>% 
+  map(~grep(., comments, value = TRUE)) %>% 
+  map(parse_vcf_info) %>% 
+  str_c(collapse = " ")
 vcf %>% 
-  mutate_at("POS", formatC, big.mark=",", format="d") %>% 
-  select(CHROM:INFO) %>% 
-  kable(caption = "Variant calling summary.") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE)
-
+  select(`#CHROM`:INFO) %>% 
+  datatable(
+    rownames = FALSE, 
+    caption = str_c("Table 1. Variant calling summary. ", info),
+    filter = "top", 
+    options = list(
+      pageLength = 20, 
+      autoWidth = TRUE
+      )
+    )
