@@ -174,16 +174,19 @@ rule snpeff:
         "0.50.4/bio/snpeff"
 
 
-rule vcf2fasta:
+rule referencemaker:
     input:
       vcf = "output/{run}/freebayes.vcf",
-      ref=REF_GENOME
+      ref = REF_GENOME
     output:
-      "output/{run}/consensus.fa"
+      idx = temp("output/{run}/freebayes.vcf.idx"),
+      fasta = "output/{run}/consensus.fa",
+      dic = "output/{run}/consensus.dict"
     params:
-      extra = "-P 1"
+      refmaker = "--lenient",
+      bam = rules.dedup.output.bam
     wrapper:
-      WRAPPER_PREFIX + "master/vcflib/vcf2fasta"
+      WRAPPER_PREFIX + "master/gatk/fastaalternatereferencemaker"
 
 
 # Parse report

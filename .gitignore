@@ -3,3 +3,4 @@ test/logs
 test/output
 .Rproj.user
 *.Rproj
+*.DS_Store
