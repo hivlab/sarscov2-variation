@@ -21,6 +21,7 @@ validate(config, "schemas/config.schema.yaml")
 SAMPLES = pd.read_csv(config["samples"], sep="\s+", dtype=str).set_index(["run"], drop=False)
 validate(SAMPLES, "schemas/samples.schema.yaml")
 RUN = SAMPLES.index.tolist()
+PLATFORM = SAMPLES.platform
 
 
 # Path to reference genomes
@@ -173,6 +174,20 @@ rule samtools_sort:
     threads: 4 # Samtools takes additional threads through its option -@
     wrapper:
         "0.50.4/bio/samtools/sort"
+
+
+rule replace_rg:
+    input:
+        rules.samtools_sort.output
+    output:
+        "output/{run}/refgenome_fixed.bam"
+    params:
+        lambda wildcards: "RGLB=lib1 RGPL={} RGPU={{run}} RGSM={{run}}".format(PLATFORM[wildcards.run])
+    resources:
+        runtime = 10,
+        mem_mb = 4000
+    wrapper:
+        WRAPPER_PREFIX + "master/picard/addorreplacereadgroups"
 
 
 rule genomecov:
