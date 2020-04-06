@@ -43,7 +43,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
+    input: expand(["output/{run}/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
 
 
 def get_fastq(wildcards):
@@ -142,6 +142,111 @@ rule maphost:
         WRAPPER_PREFIX + "master/bbmap/bbwrap"
 
 
+# Map reads to ref genome
+rule refgenome:
+    input:
+        input = rules.maphost.output.outu,
+        ref = REF_GENOME
+    output:
+        out = "output/{run}/refgenome.sam",
+        statsfile = "output/{run}/refgenome.txt"
+    params:
+        extra = "maxlen=600 nodisk -Xmx8000m"
+    resources:
+        runtime = 30,
+        mem_mb = 8000
+    threads: 4
+    wrapper:
+        WRAPPER_PREFIX + "master/bbmap/bbwrap"
+
+
+rule samtools_sort:
+    input:
+        rules.refgenome.output.out
+    output:
+        "output/{run}/refgenome.bam"
+    params:
+        "-m 4G"
+    resources:
+        runtime = 20,
+        mem_mb = 4000
+    threads: 4 # Samtools takes additional threads through its option -@
+    wrapper:
+        "0.50.4/bio/samtools/sort"
+
+
+rule genomecov:
+    input:
+        ibam = rules.samtools_sort.output
+    output:
+        "output/{run}/genomecov.bg"
+    params:
+        extra = "-bg"
+    resources:
+        runtime = 20,
+        mem_mb = 16000
+    wrapper: 
+        WRAPPER_PREFIX + "master/bedtools/genomecov"
+
+
+# Variant calling
+rule freebayes:
+    input:
+        ref = REF_GENOME,
+        samples = rules.samtools_sort.output
+    output:
+        "output/{run}/freebayes.vcf" 
+    params:
+        extra="--pooled-continuous --ploidy 1",
+        pipe = """| vcffilter -f 'QUAL > 20'"""
+    resources:
+        runtime = 20,
+        mem_mb = 4000
+    threads: 1
+    wrapper:
+        WRAPPER_PREFIX + "master/freebayes"
+
+
+rule snpeff:
+    input:
+        "output/{run}/freebayes.vcf"
+    output:
+        calls = "output/{run}/snpeff.vcf",   # annotated calls (vcf, bcf, or vcf.gz)
+        stats = "output/{run}/snpeff.html",  # summary statistics (in HTML), optional
+        csvstats = "output/{run}/snpeff.csv", # summary statistics in CSV, optional
+        genes = "output/{run}/snpeff.genes.txt"
+    log:
+        "output/{run}/log/snpeff.log"
+    params:
+        data_dir = "data",
+        reference = "NC045512", # reference name (from `snpeff databases`)
+        extra = "-c ../refseq/snpEffect.config -Xmx4g"          # optional parameters (e.g., max memory 4g)
+    resources:
+        runtime = 20,
+        mem_mb = 4000    
+    wrapper:
+        "0.50.4/bio/snpeff"
+
+
+rule referencemaker:
+    input:
+        vcf = "output/{run}/freebayes.vcf",
+        ref = REF_GENOME
+    output:
+        idx = temp("output/{run}/freebayes.vcf.idx"),
+        fasta = "output/{run}/consensus.fa",
+        dic = "output/{run}/consensus.dict",
+        fai = "output/{run}/consensus.fa.fai"
+    params:
+        refmaker = "--lenient",
+        bam = rules.samtools_sort.output
+    resources:
+        runtime = 20,
+        mem_mb = 4000    
+    wrapper:
+        WRAPPER_PREFIX + "master/gatk/fastaalternatereferencemaker"
+
+
 # QC
 fastq_screen_config = {
     "database": {
@@ -178,3 +283,32 @@ rule fastqc:
     wrapper:
         "0.27.1/bio/fastqc"
 
+
+# Host mapping stats
+rule bamstats:
+    input:
+        rules.samtools_sort.output
+    output:
+        "output/{run}/bamstats.txt"
+    resources:
+        runtime = 20,
+        mem_mb = 8000
+    wrapper:
+        "0.42.0/bio/samtools/stats"
+
+
+rule multiqc:
+    input:
+        "output/{run}/fastq_screen.txt",
+        "output/{run}/bamstats.txt",
+        "output/{run}/fastqc.zip",
+        "output/{run}/snpeff.csv"
+    output:
+        report("output/{run}/multiqc.html", caption = "report/multiqc.rst", category = "Quality control")
+    log:
+        "output/{run}/log/multiqc.log"
+    resources:
+        runtime = 20,
+        mem_mb = 4000    
+    wrapper:
+      WRAPPER_PREFIX + "master/multiqc"
