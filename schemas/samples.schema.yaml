@@ -4,14 +4,15 @@ properties:
   run:
     type: string
     description: sequencing run name/identifier
+  fq:
+    type: string
+    description: path to SE or interleaved fastq(.gz) file 
   fq1:
     type: string
-    description: path to fastq(.gz) pair 1 file
+    description: path to PE fastq(.gz) pair 1 file
   fq2:
     type: string
-    description: path to fastq(.gz) pair 2 file
+    description: path to PE fastq(.gz) pair 2 file
 
 required:
   - run
-  - fq1
-  - fq2
