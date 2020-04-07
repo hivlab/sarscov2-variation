@@ -6,3 +6,8 @@ test/output
 .Rhistory
 *.DS_Store
 .vscode
+*.fq
+*.fastq
+*.fq.gz
+*.fastq.gz
+
