@@ -28,6 +28,7 @@ PLATFORM = SAMPLES.platform
 REF_GENOME = config["refgenome"]
 HOST_GENOME = os.environ["REF_GENOME_HUMAN_MASKED"]
 RRNA_DB = os.environ["SILVA"]
+CPNDB = os.environ["CPNDB"]
 
 
 # Wrappers
@@ -266,9 +267,11 @@ rule referencemaker:
 fastq_screen_config = {
     "database": {
         "human": HOST_GENOME,
-        "SILVA_138_SSU_132_LSU": RRNA_DB
+        "SILVA_138_SSU_132_LSU": RRNA_DB,
+        "cpn60": CPNDB
     }
 }
+
 rule fastq_screen:
     input:
         rules.trim.output.out

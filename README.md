@@ -27,14 +27,25 @@ git clone https://github.com/avilab/sarscov2.git .
 
 ## Download databases
 ### Human reference genome
+Human genomic sequence database is used to estimate and remove human sequences from analysis.
 Run `scripts/download_masked_human_hg19.sh` to download masked human reference genome to filter out reads mapping to the human genome.
 Move `hg19_main_mask_ribo_animal_allplant_allfungus.fa.gz` file in your system where you store databases. 
+`hg19_main_mask_ribo_animal_allplant_allfungus.fa.gz` file was indexed using `bwa index` command.
 Setup environment variable "REF_GENOME_HUMAN_MASKED" pointing to this file or edit "HOST_GENOME" variable in Snakefile.
 
-### Silva small subunit ribosomal database
-Silva small subunit rRNA database is used to estimate rRNA contamination.
-Database file was downloaded from <https://www.arb-silva.de/fileadmin/silva_databases/release_138/Exports/SILVA_138_SSURef_NR99_tax_silva.fasta.gz> and moved to systems' databases folder.
-Setup environment variable "SILVA_SSU" pointing to this file or edit "RRNA_DB" variable in Snakefile.
+### Silva small and large subunit ribosomal databases
+Silva rRNA database is used to estimate and remove rRNA contamination.
+Database files can be downloaded from <https://www.arb-silva.de/fileadmin/silva_databases/release_138/Exports/SILVA_138_SSURef_NR99_tax_silva.fasta.gz> and <https://www.arb-silva.de/fileadmin/silva_databases/release_132/Exports/SILVA_132_LSURef_tax_silva.fasta.gz>
+and moved to systems' databases folder.
+LSU and SSU fasta files were concatenated and indexed using `bwa index` command.
+Setup environment variable "SILVA_DB" pointing to this file or edit "RRNA_DB" variable in Snakefile.
+
+### cpn60 database
+cpn60 database is used to estimate bacterial contamination in sequencing library.
+"cpnDB_nr (UT only, one sequence per species, type strain preferred, current version 20190305)" database in fasta format was downloaded from <http://www.cpndb.ca/downloads.php>.
+cpn60 database was indexed using `bwa index` command.
+Setup environment variable "CPNDB" pointing to this file or edit "CPNDB" variable in Snakefile.
+
 
 ## Running
 
