@@ -21,19 +21,26 @@ validate(config, "schemas/config.schema.yaml")
 SAMPLES = pd.read_csv(config["samples"], sep="\s+", dtype=str).set_index(["run"], drop=False)
 validate(SAMPLES, "schemas/samples.schema.yaml")
 RUN = SAMPLES.index.tolist()
+PLATFORM = SAMPLES.platform
 
 
 # Path to reference genomes
 REF_GENOME = config["refgenome"]
 HOST_GENOME = os.environ["REF_GENOME_HUMAN_MASKED"]
-RRNA_DB = os.environ["SILVA_SSU"]
+RRNA_DB = os.environ["SILVA"]
+# cpn60 NR database file cpndb_nr_nut_seq.txt was downloaded from http://www.cpndb.ca/downloads.php
+# cpn60 database was indexed using bwa index
+CPNDB = os.environ["CPNDB"]
 
 
 # Wrappers
+# Wrappers repo: https://github.com/avilab/virome-wrappers
 WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers/"
+
 
 # Report
 report: "report/workflow.rst"
+
 
 onsuccess:
     email = config["email"]
@@ -41,54 +48,123 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/consensus.fa", "output/{run}/fastq_screen.txt", "output/{run}/multiqc.html", "output/{run}/report.html", "output/{run}/genomecov.bg", "output/{run}/freebayes.vcf"], run = RUN)
+    input: expand(["output/{run}/consensus.fa", "output/{run}/report.html", "output/{run}/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
 
 
 def get_fastq(wildcards):
-    fastqs = SAMPLES.loc[wildcards.run, ["fq1", "fq2"]].dropna()
-    if config["remote"]:
-        FTP = FTPRemoteProvider(username="anonymous", password=config["email"])
-        return {"in1": FTP.remote(fastqs.fq1, immediate_close=True), "in2": FTP.remote(fastqs.fq2, immediate_close=True)}
+    fq_cols = [col for col in SAMPLES.columns if "fq" in col]
+    fqs = SAMPLES.loc[wildcards.run, fq_cols].dropna()
+    assert len(fq_cols) in [1, 2], "Enter one or two FASTQ file paths"
+    if len(fq_cols) == 2:
+        return {"in1": fqs[0], "in2": fqs[1]}
     else:
-        return {"in1": fastqs.fq1, "in2": fastqs.fq2}
+        return {"input": fqs[0]}
 
 
-rule preprocess:
+rule clumpify:
     input:
         unpack(get_fastq)
     output:
-        out1 = temp("output/{run}/cleaned1.fq"),
-        out2 = temp("output/{run}/cleaned2.fq"),
-        bhist = "output/{run}/bhist.txt",
-        aqhist = "output/{run}/aqhist.txt",
-        lhist = "output/{run}/lhist.txt", 
-        mhist = "output/{run}/mhist.txt", 
-        gchist = "output/{run}/gchist.txt"
+        out = temp("output/{run}/clumpify.fq")
     params:
-        extra = "hdist=1 maq=20 tpe tbo -da"
+        extra = "dedupe optical reorder qin=33 -da" # suppress assertions
     resources:
         runtime = 20,
         mem_mb = 4000
     log: 
-        "output/{run}/log/bbduk.log"
+        "output/{run}/log/clumpify.log"
+    wrapper:
+        WRAPPER_PREFIX + "master/bbmap/clumpify"
+
+
+rule trim:
+    input:
+        input = rules.clumpify.output.out
+    output:
+        out = temp("output/{run}/trimmed.fq")
+    params:
+        extra = "ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=70 ref=adapters ftm=5 ordered qin=33"
+    resources:
+        runtime = 20,
+        mem_mb = 4000
+    log: 
+        "output/{run}/log/trim.log"
     wrapper:
         WRAPPER_PREFIX + "master/bbduk"
+
+
+rule filter:
+    input:
+        input = rules.trim.output.out
+    output:
+        out = "output/{run}/filtered.fq"
+    params:
+        extra = "k=31 ref=artifacts,phix ordered cardinality"
+    resources:
+        runtime = 20,
+        mem_mb = 4000
+    log: 
+        "output/{run}/log/filter.log"
+    wrapper:
+        WRAPPER_PREFIX + "master/bbduk"
+
+
+# Remove rRNA sequences
+rule maprRNA:
+    input:
+        input = rules.filter.output.out,
+        ref = RRNA_DB
+    output:
+        outu = "output/{run}/unmaprRNA.fq",
+        outm = "output/{run}/maprRNA.fq",
+        statsfile = "output/{run}/maprrna.txt"
+    params:
+        extra = "maxlen=600 nodisk -Xmx16000m"
+    resources:
+        runtime = 30,
+        mem_mb = 16000
+    threads: 4
+    wrapper:
+        WRAPPER_PREFIX + "master/bbmap/bbwrap"
+
+
+# Remove host sequences
+rule maphost:
+    input:
+        input = rules.maprRNA.output.outu,
+        ref = HOST_GENOME
+    output:
+        outu = "output/{run}/unmaphost.fq",
+        outm = "output/{run}/maphost.fq",
+        statsfile = "output/{run}/maphost.txt"
+    params:
+        extra = "maxlen=600 nodisk -Xmx16000m"
+    resources:
+        runtime = 30,
+        mem_mb = 16000
+    threads: 4
+    wrapper:
+        WRAPPER_PREFIX + "master/bbmap/bbwrap"
 
 
 # Map reads to ref genome
 rule refgenome:
     input:
-        in1 = rules.preprocess.output.out1,
-        in2 = rules.preprocess.output.out2,
+        input = rules.maphost.output.outu,
         ref = REF_GENOME
     output:
         out = "output/{run}/refgenome.sam",
-        statsfile = "output/{run}/statsfile.txt"
+        statsfile = "output/{run}/refgenome.txt",
+        gchist = "output/{run}/gchist.txt",
+        aqhist = "output/{run}/aqhist.txt",
+        lhist = "output/{run}/lhist.txt",
+        mhist = "output/{run}/mhist.txt",
+        bhist = "output/{run}/bhist.txt",
     params:
-        extra = "maxlen=600 nodisk -Xmx8000m"
+        extra = "maxlen=600 nodisk -Xmx16000m"
     resources:
         runtime = 30,
-        mem_mb = 8000
+        mem_mb = 16000
     threads: 4
     wrapper:
         WRAPPER_PREFIX + "master/bbmap/bbwrap"
@@ -100,7 +176,7 @@ rule samtools_sort:
     output:
         "output/{run}/refgenome.bam"
     params:
-        "-m 4G"
+        ""
     resources:
         runtime = 20,
         mem_mb = 4000
@@ -115,7 +191,7 @@ rule replace_rg:
     output:
         "output/{run}/refgenome_fixed.bam"
     params:
-        "RGLB=lib1 RGPL=ILLUMINA RGPU={run} RGSM={run}"
+        lambda wildcards: "RGLB=lib1 RGPL={} RGPU={{run}} RGSM={{run}}".format(PLATFORM[wildcards.run])
     resources:
         runtime = 10,
         mem_mb = 4000
@@ -123,31 +199,16 @@ rule replace_rg:
         WRAPPER_PREFIX + "master/picard/addorreplacereadgroups"
 
 
-rule dedup:
-    input: 
-        rules.replace_rg.output
-    output:
-        bam = "output/{run}/refgenome_dedup.bam",
-        metrics = "output/{run}/dedup.metrics"
-    params:
-        extra = "REMOVE_DUPLICATES=TRUE ASSUME_SORTED=TRUE VALIDATION_STRINGENCY=LENIENT"
-    resources:
-        runtime = 20,
-        mem_mb = 4000    
-    wrapper:
-        WRAPPER_PREFIX + "master/picard/markduplicates"
-
-
 rule genomecov:
     input:
-        ibam = rules.dedup.output.bam
+        ibam = rules.replace_rg.output[0]
     output:
         "output/{run}/genomecov.bg"
     params:
         extra = "-bg"
     resources:
         runtime = 20,
-        mem_mb = 16000
+        mem_mb = lambda wildcards, attempt: attempt * 8000
     wrapper: 
         WRAPPER_PREFIX + "master/bedtools/genomecov"
 
@@ -155,8 +216,8 @@ rule genomecov:
 # Variant calling
 rule freebayes:
     input:
-        ref=REF_GENOME,
-        samples=rules.dedup.output.bam
+        ref = REF_GENOME,
+        samples = rules.replace_rg.output
     output:
         "output/{run}/freebayes.vcf" 
     params:
@@ -202,7 +263,7 @@ rule referencemaker:
         fai = "output/{run}/consensus.fa.fai"
     params:
         refmaker = "--lenient",
-        bam = rules.dedup.output.bam
+        bam = rules.samtools_sort.output
     resources:
         runtime = 20,
         mem_mb = 4000    
@@ -213,7 +274,7 @@ rule referencemaker:
 # Parse report
 rule report:
     input:
-        statsfile = "output/{run}/statsfile.txt",
+        statsfile = "output/{run}/refgenome.txt",
         gchist = "output/{run}/gchist.txt",
         aqhist = "output/{run}/aqhist.txt",
         lhist = "output/{run}/lhist.txt",
@@ -230,18 +291,20 @@ rule report:
         runtime = 10,
         mem_mb = 4000
     wrapper:
-        "file:wrappers/report"
+        "file:../wrappers/report"
 
 # QC
 fastq_screen_config = {
     "database": {
         "human": HOST_GENOME,
-        "SILVA_138_SSURef_NR99": RRNA_DB
+        "SILVA_138_SSU_132_LSU": RRNA_DB,
+        "cpn60": CPNDB
     }
 }
+
 rule fastq_screen:
     input:
-        rules.preprocess.output.out1
+        rules.filter.output.out
     output:
         txt = "output/{run}/fastq_screen.txt",
         png = "output/{run}/fastq_screen.png"
@@ -260,8 +323,8 @@ rule fastqc:
     input:
         unpack(get_fastq)
     output:
-        html="output/{run}/fastqc.html",
-        zip="output/{run}/fastqc.zip"
+        html = "output/{run}/fastqc.html",
+        zip = "output/{run}/fastqc.zip"
     resources:
         runtime = 20,
         mem_mb = 4000    
@@ -272,7 +335,7 @@ rule fastqc:
 # Host mapping stats
 rule bamstats:
     input:
-        rules.dedup.output.bam
+        rules.replace_rg.output
     output:
         "output/{run}/bamstats.txt"
     resources:
@@ -287,7 +350,6 @@ rule multiqc:
         "output/{run}/fastq_screen.txt",
         "output/{run}/bamstats.txt",
         "output/{run}/fastqc.zip",
-        "output/{run}/dedup.metrics",
         "output/{run}/snpeff.csv"
     output:
         report("output/{run}/multiqc.html", caption = "report/multiqc.rst", category = "Quality control")
