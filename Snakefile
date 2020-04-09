@@ -138,10 +138,10 @@ rule maphost:
         outm = "output/{run}/maphost.fq",
         statsfile = "output/{run}/maphost.txt"
     params:
-        extra = "maxlen=600 nodisk -Xmx16g"
+        extra = "maxlen=600 nodisk -Xmx24g"
     resources:
         runtime = 30,
-        mem_mb = 16000
+        mem_mb = 24000
     threads: 4
     wrapper:
         WRAPPER_PREFIX + "master/bbmap/bbwrap"
