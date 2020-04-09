@@ -28,10 +28,13 @@ PLATFORM = SAMPLES.platform
 REF_GENOME = config["refgenome"]
 HOST_GENOME = os.environ["REF_GENOME_HUMAN_MASKED"]
 RRNA_DB = os.environ["SILVA"]
+# cpn60 NR database file cpndb_nr_nut_seq.txt was downloaded from http://www.cpndb.ca/downloads.php
+# cpn60 database was indexed using bwa index
 CPNDB = os.environ["CPNDB"]
 
 
 # Wrappers
+# Wrappers repo: https://github.com/avilab/virome-wrappers
 WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers/"
 
 
