@@ -119,7 +119,7 @@ rule maprRNA:
         outm = "output/{run}/maprRNA.fq",
         statsfile = "output/{run}/maprrna.txt"
     params:
-        extra = "maxlen=600 nodisk -Xmx16000m"
+        extra = "maxlen=600 nodisk -Xmx16g"
     resources:
         runtime = 30,
         mem_mb = 16000
@@ -138,7 +138,7 @@ rule maphost:
         outm = "output/{run}/maphost.fq",
         statsfile = "output/{run}/maphost.txt"
     params:
-        extra = "maxlen=600 nodisk -Xmx16000m"
+        extra = "maxlen=600 nodisk -Xmx16g"
     resources:
         runtime = 30,
         mem_mb = 16000
@@ -161,7 +161,7 @@ rule refgenome:
         mhist = "output/{run}/mhist.txt",
         bhist = "output/{run}/bhist.txt",
     params:
-        extra = "maxlen=600 nodisk -Xmx16000m"
+        extra = "maxlen=600 nodisk -Xmx16g"
     resources:
         runtime = 30,
         mem_mb = 16000
@@ -263,7 +263,7 @@ rule referencemaker:
         fai = "output/{run}/consensus.fa.fai"
     params:
         refmaker = "--lenient",
-        bam = rules.samtools_sort.output
+        bam = rules.replace_rg.output[0]
     resources:
         runtime = 20,
         mem_mb = 4000    
