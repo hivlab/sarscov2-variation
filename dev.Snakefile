@@ -119,7 +119,7 @@ rule maprRNA:
         extra = "maxlen=600 nodisk -Xmx16000m"
     resources:
         runtime = 30,
-        mem_mb = 16000
+        mem_mb = lambda wildcards, attempt: attempt * 8000
     threads: 4
     wrapper:
         WRAPPER_PREFIX + "master/bbmap/bbwrap"
@@ -138,7 +138,7 @@ rule maphost:
         extra = "maxlen=600 nodisk -Xmx16000m"
     resources:
         runtime = 30,
-        mem_mb = 16000
+        mem_mb = lambda wildcards, attempt: attempt * 8000
     threads: 4
     wrapper:
         WRAPPER_PREFIX + "master/bbmap/bbwrap"
@@ -156,7 +156,7 @@ rule refgenome:
         extra = "maxlen=600 nodisk -Xmx8000m"
     resources:
         runtime = 30,
-        mem_mb = 8000
+        mem_mb = lambda wildcards, attempt: attempt * 4000
     threads: 4
     wrapper:
         WRAPPER_PREFIX + "master/bbmap/bbwrap"
@@ -200,7 +200,7 @@ rule genomecov:
         extra = "-bg"
     resources:
         runtime = 20,
-        mem_mb = 16000
+        mem_mb = lambda wildcards, attempt: attempt * 8000
     wrapper: 
         WRAPPER_PREFIX + "master/bedtools/genomecov"
 
