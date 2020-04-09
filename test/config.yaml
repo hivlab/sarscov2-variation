@@ -1,16 +1,18 @@
 # Set seed for replicability
 seed: 11
 
-# Path or URL to sample sheet (TSV format, required columns: sample, fq1, fq2, frac)
+
+# Path or URL to sample sheet (TSV format, required columns: sample, fq or fq1, fq2, frac)
 # sample - unique sample name
 # run - sequencing run
 # fq1 and fq2 - paths to paired-end fastq file
 samples: samples.tsv
-remote: False
 
-# Email address
+
+# Author and email address
 author: Taavi Päll
 email: tapa741@gmail.com
+
 
 # Ref genome
 refgenome: "../refseq/NC_045512.fa"

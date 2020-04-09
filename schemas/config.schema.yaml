@@ -8,17 +8,20 @@ properties:
   samples:
     type: string
     description: path to samples.tsv file
-  remote:
-    type: boolean
-    default: false
-    description: boolean that indicates whether to download remote files via FTP
-  email:
-    type: string
-    description: email for remote file FTP download
   author:
     type: string
-    description: Author of the report
+    description: author of the report
+  email:
+    type: string
+    description: author email address
+  refgenome:
+    type: string
+    description: path to sars-cov-2 indexed genome
+  refgenome_name:
+    type: string
+    description: name/description of the sars-cov-2 reference genome sequence
 
 required:
   - samples
-
+  - refgenome
+  - refgenome_name
