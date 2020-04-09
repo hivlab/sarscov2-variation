@@ -48,7 +48,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
+    input: expand(["output/{run}/consensus.fa", "output/{run}/report.html", "output/{run}/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
 
 
 def get_fastq(wildcards):
@@ -67,7 +67,7 @@ rule clumpify:
     output:
         out = temp("output/{run}/clumpify.fq")
     params:
-        extra = "dedupe optical qin=33 -da" # suppress assertions
+        extra = "dedupe optical reorder qin=33 -da" # suppress assertions
     resources:
         runtime = 20,
         mem_mb = 4000
@@ -122,7 +122,7 @@ rule maprRNA:
         extra = "maxlen=600 nodisk -Xmx16000m"
     resources:
         runtime = 30,
-        mem_mb = lambda wildcards, attempt: attempt * 8000
+        mem_mb = 16000
     threads: 4
     wrapper:
         WRAPPER_PREFIX + "master/bbmap/bbwrap"
@@ -141,7 +141,7 @@ rule maphost:
         extra = "maxlen=600 nodisk -Xmx16000m"
     resources:
         runtime = 30,
-        mem_mb = lambda wildcards, attempt: attempt * 8000
+        mem_mb = 16000
     threads: 4
     wrapper:
         WRAPPER_PREFIX + "master/bbmap/bbwrap"
@@ -154,12 +154,17 @@ rule refgenome:
         ref = REF_GENOME
     output:
         out = "output/{run}/refgenome.sam",
-        statsfile = "output/{run}/refgenome.txt"
+        statsfile = "output/{run}/refgenome.txt",
+        gchist = "output/{run}/gchist.txt",
+        aqhist = "output/{run}/aqhist.txt",
+        lhist = "output/{run}/lhist.txt",
+        mhist = "output/{run}/mhist.txt",
+        bhist = "output/{run}/bhist.txt",
     params:
-        extra = "maxlen=600 nodisk -Xmx8000m"
+        extra = "maxlen=600 nodisk -Xmx16000m"
     resources:
         runtime = 30,
-        mem_mb = lambda wildcards, attempt: attempt * 4000
+        mem_mb = 16000
     threads: 4
     wrapper:
         WRAPPER_PREFIX + "master/bbmap/bbwrap"
@@ -171,7 +176,7 @@ rule samtools_sort:
     output:
         "output/{run}/refgenome.bam"
     params:
-        "-m 4G"
+        ""
     resources:
         runtime = 20,
         mem_mb = 4000
@@ -196,7 +201,7 @@ rule replace_rg:
 
 rule genomecov:
     input:
-        ibam = rules.replace_rg.output
+        ibam = rules.replace_rg.output[0]
     output:
         "output/{run}/genomecov.bg"
     params:
@@ -266,6 +271,28 @@ rule referencemaker:
         WRAPPER_PREFIX + "master/gatk/fastaalternatereferencemaker"
 
 
+# Parse report
+rule report:
+    input:
+        statsfile = "output/{run}/refgenome.txt",
+        gchist = "output/{run}/gchist.txt",
+        aqhist = "output/{run}/aqhist.txt",
+        lhist = "output/{run}/lhist.txt",
+        mhist = "output/{run}/mhist.txt",
+        bhist = "output/{run}/bhist.txt",
+        genomecov = "output/{run}/genomecov.bg",
+        vcf = "output/{run}/freebayes.vcf"
+    output:
+        "output/{run}/report.html"
+    params:
+        author = config["author"],
+        run = lambda wildcards: wildcards.run
+    resources:
+        runtime = 10,
+        mem_mb = 4000
+    wrapper:
+        "file:../wrappers/report"
+
 # QC
 fastq_screen_config = {
     "database": {
@@ -277,7 +304,7 @@ fastq_screen_config = {
 
 rule fastq_screen:
     input:
-        rules.trim.output.out
+        rules.filter.output.out
     output:
         txt = "output/{run}/fastq_screen.txt",
         png = "output/{run}/fastq_screen.png"
