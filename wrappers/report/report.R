@@ -87,32 +87,18 @@ length_plot <- read_length %>%
 ggplotly(length_plot)
 
 
-#' ### Quality boxplot
-#+ bqcomp, fig.cap='Distribution of quality score by position.'
-# bq_comp <- read_delim(bqhist, comment = "#", delim = "\t", col_names = c("Pos", "A", "C", "G", "T", "N"))
-# base_plot <- base_comp %>% 
-#   pivot_longer(c("A", "C", "G", "T", "N")) %>% 
-#   mutate(value = value * 100) %>% 
-#   ggplot() +
-#   geom_col(aes(Pos, value, fill = name)) +
-#   labs(y = "Reads %", x = "Base position") +
-#   theme(legend.title = element_blank()) +
-#   scale_color_jcolors(palette = "pal3")
-# base_plot
-
-
 #' ### Base composition
 #+ base-comp, fig.cap='Distribution of base composition by position.'
 base_comp <- read_delim(bhist, comment = "#", delim = "\t", col_names = c("Pos", "A", "C", "G", "T", "N"))
 base_plot <- base_comp %>% 
   pivot_longer(c("A", "C", "G", "T", "N")) %>% 
   ggplot() +
-  geom_col(aes(Pos, value, fill = name)) +
+  geom_line(aes(Pos, value, color = name, group = name)) +
   scale_y_continuous(labels = scales::percent_format()) +
   labs(y = "Reads %", x = "Base position") +
   theme(legend.title = element_blank(),
         legend.position = "bottom") +
-  scale_color_jcolors(palette = "pal3")
+  scale_color_jcolors(palette = "pal7")
 base_plot
 
 
@@ -123,11 +109,12 @@ indel_plot <- indel_dist %>%
   pivot_longer(c("Match",	"Sub",	"Del",	"Ins",	"N",	"Other")) %>% 
   mutate_at("name", factor, levels = c("Match",	"Sub",	"Del",	"Ins",	"N",	"Other")) %>% 
   ggplot() +
-  geom_col(aes(BaseNum, value, fill = name)) +
+  geom_line(aes(BaseNum, value, color = name, group = name)) +
   labs(y = "Reads %", x = "Base position") +
   theme(legend.title = element_blank(),
         legend.position = "bottom") +
-  scale_color_jcolors(palette = "pal3")
+  scale_color_jcolors(palette = "pal7") +
+  scale_y_continuous(labels = scales::percent)
 indel_plot
 
 #' ### Coverage distribution
@@ -148,6 +135,7 @@ parse_vcf_info <- function(x) {
   names(description) <- map(x, str_extract, "(?<=ID\\=)\\w+")
   str_c(str_c(names(description), str_remove(str_to_lower(description), "\\.$"), sep = ", ", collapse = ". "), ".")
 }
+# vcf_file <- "test/output/SRR11140750/freebayes.vcf"
 vcf <- read_tsv(vcf_file, comment = "##")
 comments <- read_lines(vcf_file) %>% 
   grep("##", ., value = TRUE)
@@ -156,7 +144,16 @@ info <- c("##FILTER", "##INFO", "##FORMAT") %>%
   map(parse_vcf_info) %>% 
   str_c(collapse = " ")
 vcf %>% 
-  select(`#CHROM`:INFO) %>% 
+  rename_at("{run}", glue) %>% 
+  mutate(INFO = str_split(INFO, ";"),
+         vars = map(INFO, str_extract, "^[A-z]+"),
+         values = map(INFO, str_extract, "\\d+$"),
+         values = map(values, as.numeric),
+         values = map(values, ~as_tibble(matrix(.x, ncol = length(.x)))),
+         INFO = map2(vars, values, function(x, y) {colnames(y) <- x; y}),
+         ALT = if_else(str_length(ALT) > 10, str_c(str_sub(ALT, 1, 10), "..."), ALT)) %>% 
+  unnest(INFO) %>% 
+  select(-vars, -values) %>% 
   datatable(
     rownames = FALSE, 
     caption = str_c("Table 1. Variant calling summary. ", info),
@@ -164,5 +161,5 @@ vcf %>%
     options = list(
       pageLength = 20, 
       autoWidth = TRUE
-      )
     )
+  )
