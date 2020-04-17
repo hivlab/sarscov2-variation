@@ -74,7 +74,7 @@ rule clumpify:
     log: 
         "output/{run}/log/clumpify.log"
     wrapper:
-        WRAPPER_PREFIX + "master/bbmap/clumpify"
+        WRAPPER_PREFIX + "master/bbtools/clumpify"
 
 
 rule trim:
@@ -90,7 +90,7 @@ rule trim:
     log: 
         "output/{run}/log/trim.log"
     wrapper:
-        WRAPPER_PREFIX + "master/bbduk"
+        WRAPPER_PREFIX + "master/bbtools/bbduk"
 
 
 rule filter:
@@ -106,7 +106,7 @@ rule filter:
     log: 
         "output/{run}/log/filter.log"
     wrapper:
-        WRAPPER_PREFIX + "master/bbduk"
+        WRAPPER_PREFIX + "master/bbtools/bbduk"
 
 
 # Remove rRNA sequences
@@ -125,7 +125,7 @@ rule maprRNA:
         mem_mb = 16000
     threads: 4
     wrapper:
-        WRAPPER_PREFIX + "master/bbmap/bbwrap"
+        WRAPPER_PREFIX + "master/bbtools/bbwrap"
 
 
 # Remove host sequences
@@ -144,7 +144,7 @@ rule maphost:
         mem_mb = 24000
     threads: 4
     wrapper:
-        WRAPPER_PREFIX + "master/bbmap/bbwrap"
+        WRAPPER_PREFIX + "master/bbtools/bbwrap"
 
 
 # Map reads to ref genome
@@ -167,7 +167,7 @@ rule refgenome:
         mem_mb = 16000
     threads: 4
     wrapper:
-        WRAPPER_PREFIX + "master/bbmap/bbwrap"
+        WRAPPER_PREFIX + "master/bbtools/bbwrap"
 
 
 rule samtools_sort:
