@@ -289,7 +289,7 @@ rule sarscov2seqs:
         email = "taavi.pall@ut.ee",
         api_key = os.environ.get("NCBI_APIKEY")
     wrapper:
-        "file:../wrappers/sequences/get_gb"
+        "file:wrappers/sequences/get_gb"
 
 
 rule parsegb:
@@ -299,7 +299,7 @@ rule parsegb:
         fasta = "output/sars-cov-2/sequences.fa",
         metadata = "output/sars-cov-2/metadata.tsv"
     wrapper:
-        "file:../wrappers/sequences/parse_gb"
+        "file:wrappers/sequences/parse_gb"
 
 
 # Run cd-hit to cluster identical sequences
@@ -334,7 +334,7 @@ rule align:
         runtime = 30,
         mem_mb = 4000
     wrapper:
-        "file:../wrappers/mafft"
+        "file:wrappers/mafft"
 
 
 rule merge:
@@ -351,7 +351,7 @@ rule merge:
         runtime = 30,
         mem_mb = 4000
     wrapper:
-        "file:../wrappers/mafft"
+        "file:wrappers/mafft"
 
 
 # Parse report
@@ -374,7 +374,7 @@ rule report:
         runtime = 10,
         mem_mb = 4000
     wrapper:
-        "file:../wrappers/report"
+        "file:wrappers/report"
 
 # QC
 fastq_screen_config = {
