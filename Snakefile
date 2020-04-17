@@ -48,7 +48,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/consensus.fa", "output/{run}/report.html", "output/{run}/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
+    input: expand(["output/{run}/msa.fa", "output/{run}/consensus.fa", "output/{run}/report.html", "output/{run}/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
 
 
 def get_fastq(wildcards):
@@ -269,6 +269,89 @@ rule referencemaker:
         mem_mb = 4000    
     wrapper:
         WRAPPER_PREFIX + "master/gatk/fastaalternatereferencemaker"
+
+
+rule fixfastaheader:
+    input:
+        rules.referencemaker.output.fasta
+    output:
+        "output/{run}/consensus_fix.fa"
+    params:
+        run = lambda wildcards: wildcards.run
+    shell:
+        "sed 's/>.*/>{params.run}/' {input[0]} > {output}"
+
+
+rule sarscov2seqs:
+    output:
+        "output/sars-cov-2/sequences.gb"
+    params:
+        email = "taavi.pall@ut.ee",
+        api_key = os.environ.get("NCBI_APIKEY")
+    wrapper:
+        "file:../wrappers/sequences/get_gb"
+
+
+rule parsegb:
+    input:
+        "output/sars-cov-2/sequences.gb"
+    output:
+        fasta = "output/sars-cov-2/sequences.fa",
+        metadata = "output/sars-cov-2/metadata.tsv"
+    wrapper:
+        "file:../wrappers/sequences/parse_gb"
+
+
+# Run cd-hit to cluster identical sequences
+# Shorter sequences will be clustered with longer ones if 
+# they are completely covered by longer one
+rule cd_hit:
+    input:
+        rules.parsegb.output.fasta
+    output:
+        repres = "output/sars-cov-2/cdhit.fa",
+        clstr = "output/sars-cov-2/cdhit.fa.clstr"
+    params:
+        extra = "-c 1 -G 0 -aS 1 -d 0 -M 0"
+    log:
+        "output/sars-cov-2/log/cdhit.log"
+    threads: 4
+    resources:
+        runtime = 30,
+        mem_mb = 4000
+    wrapper:
+        WRAPPER_PREFIX + "master/cdhit"
+
+
+rule align:
+    input:
+        "output/sars-cov-2/cdhit.fa"
+    output:
+        "output/sars-cov-2/msa.fa"
+    log:
+       "output/sars-cov-2/log/mafft.log"
+    resources:
+        runtime = 30,
+        mem_mb = 4000
+    wrapper:
+        "file:../wrappers/mafft"
+
+
+rule merge:
+    input:
+        "output/{run}/consensus_fix.fa",
+        "output/sars-cov-2/msa.fa"
+    output:
+        "output/{run}/msa.fa"
+    params:
+        extra="--add"
+    log:
+       "output/{run}/log/mafft.log"
+    resources:
+        runtime = 30,
+        mem_mb = 4000
+    wrapper:
+        "file:../wrappers/mafft"
 
 
 # Parse report
