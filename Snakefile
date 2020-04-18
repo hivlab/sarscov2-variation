@@ -214,6 +214,9 @@ rule genomecov:
 
 
 # Variant calling
+# "Removes any sites with estimated probability of not being polymorphic 
+# less than phred 20 (aka 0.01), or probability of polymorphism > 0.99"
+# from FreeBayes user manual.
 rule freebayes:
     input:
         ref = REF_GENOME,
@@ -440,6 +443,8 @@ rule multiqc:
         report("output/{run}/multiqc.html", caption = "report/multiqc.rst", category = "Quality control")
     log:
         "output/{run}/log/multiqc.log"
+    shadow: 
+        "minimal"
     resources:
         runtime = 20,
         mem_mb = 4000    
