@@ -244,7 +244,7 @@ rule snpeff:
     params:
         data_dir = "data",
         reference = "NC045512", # reference name (from `snpeff databases`)
-        extra = "-c ../refseq/snpEffect.config -Xmx4g"          # optional parameters (e.g., max memory 4g)
+        extra = "-c refseq/snpEffect.config -Xmx4g"          # optional parameters (e.g., max memory 4g)
     resources:
         runtime = 20,
         mem_mb = 4000    
