@@ -9,7 +9,7 @@
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.align='center')
 
 
-#+ libs
+#+
 pkg <- c("dplyr", "readr", "purrr", "tidyr", "stringr", "here", "knitr", "kableExtra", "formattable", "glue", "plotly", "DT", "jcolors")
 invisible(lapply(pkg, library, character.only = TRUE))
 

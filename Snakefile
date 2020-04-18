@@ -370,6 +370,8 @@ rule report:
     params:
         author = config["author"],
         run = lambda wildcards: wildcards.run
+    log: 
+        "output/{run}/log/report.log"
     resources:
         runtime = 10,
         mem_mb = 4000
