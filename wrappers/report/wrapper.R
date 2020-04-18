@@ -16,7 +16,10 @@ genomecov <- file.path(wd, snakemake@input[["genomecov"]])
 vcf_file <- file.path(wd, snakemake@input[["vcf"]])
 output_file <- file.path(wd, snakemake@output[[1]])
 
-# render
+# Direct rendering stdout to log
+sink(snakemake@log[[1]])
+
+# Render
 rmarkdown::render(
   here::here("wrappers/report/report.R"), 
   output_file = output_file,
