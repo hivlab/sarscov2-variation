@@ -48,7 +48,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/msa.fa", "output/{run}/consensus.fa", "output/{run}/report.html", "output/{run}/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
+    input: expand(["output/{run}/msa.fa", "output/{run}/consensus.fa", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
 
 
 def get_fastq(wildcards):
@@ -435,16 +435,16 @@ rule bamstats:
 
 rule multiqc:
     input:
-        "output/{run}/fastq_screen.txt",
+        expand(["output/{run}/fastq_screen.txt",
         "output/{run}/bamstats.txt",
         "output/{run}/fastqc.zip",
-        "output/{run}/snpeff.csv"
+        "output/{run}/snpeff.csv"], run = RUN)
     output:
-        report("output/{run}/multiqc.html", caption = "report/multiqc.rst", category = "Quality control")
+        report("output/multiqc.html", caption = "report/multiqc.rst", category = "Quality control")
+    params:
+        "-d -dd 1"
     log:
-        "output/{run}/log/multiqc.log"
-    shadow: 
-        "minimal"
+        "output/multiqc.log"
     resources:
         runtime = 20,
         mem_mb = 4000    
