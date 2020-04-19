@@ -10,4 +10,4 @@ test/output
 *.fastq
 *.fq.gz
 *.fastq.gz
-
+output/
