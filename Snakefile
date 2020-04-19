@@ -191,7 +191,7 @@ rule replace_rg:
     output:
         "output/{run}/refgenome_fixed.bam"
     params:
-        lambda wildcards: "RGLB=lib1 RGPL={} RGPU={{run}} RGSM={{run}}".format(PLATFORM[wildcards.run])
+        lambda wildcards: "RGLB=lib1 RGPL={} RGPU={} RGSM={}".format(PLATFORM[wildcards.run], wildcards.run, wildcards.run)
     resources:
         runtime = 10,
         mem_mb = 4000
