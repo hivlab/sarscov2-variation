@@ -144,7 +144,6 @@ info <- c("##FILTER", "##INFO", "##FORMAT") %>%
   map(parse_vcf_info) %>% 
   str_c(collapse = " ")
 vcf %>% 
-  rename_at("{run}", glue) %>% 
   mutate(INFO = str_split(INFO, ";"),
          vars = map(INFO, str_extract, "^[A-z]+"),
          values = map(INFO, str_extract, "\\d+$"),
