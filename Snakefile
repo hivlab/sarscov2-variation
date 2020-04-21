@@ -201,7 +201,7 @@ rule replace_rg:
 
 rule genomecov:
     input:
-        ibam = rules.replace_rg.output[0]
+        ibam = rules.samtools_sort.output[0]
     output:
         "output/{run}/genomecov.bg"
     params:
@@ -220,12 +220,12 @@ rule genomecov:
 rule freebayes:
     input:
         ref = REF_GENOME,
-        samples = rules.replace_rg.output
+        samples = rules.samtools_sort.output
     output:
         "output/{run}/freebayes.vcf" 
     params:
         extra="--pooled-continuous --ploidy 1",
-        pipe = """| vcffilter -f 'QUAL > 20'"""
+        pipe = ""
     resources:
         runtime = 20,
         mem_mb = 4000
@@ -266,7 +266,7 @@ rule referencemaker:
         fai = "output/{run}/consensus.fa.fai"
     params:
         refmaker = "--lenient",
-        bam = rules.replace_rg.output[0]
+        bam = rules.samtools_sort.output[0]
     resources:
         runtime = 20,
         mem_mb = 4000    
@@ -423,7 +423,7 @@ rule fastqc:
 # Host mapping stats
 rule bamstats:
     input:
-        rules.replace_rg.output
+        rules.samtools_sort.output
     output:
         "output/{run}/bamstats.txt"
     resources:
