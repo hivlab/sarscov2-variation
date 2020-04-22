@@ -140,7 +140,7 @@ rule maphost:
     params:
         extra = "maxlen=600 nodisk -Xmx24g"
     resources:
-        runtime = 120,
+        runtime = 150,
         mem_mb = 24000
     threads: 4
     wrapper:
@@ -163,7 +163,7 @@ rule refgenome:
     params:
         extra = "maxlen=600 nodisk -Xmx16g"
     resources:
-        runtime = 130,
+        runtime = 120,
         mem_mb = 16000
     threads: 4
     wrapper:
@@ -227,7 +227,7 @@ rule freebayes:
         extra="--pooled-continuous --ploidy 1",
         pipe = ""
     resources:
-        runtime = 120,
+        runtime = 240,
         mem_mb = 4000
     threads: 1
     wrapper:
