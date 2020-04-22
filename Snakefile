@@ -170,24 +170,9 @@ rule refgenome:
         WRAPPER_PREFIX + "master/bbtools/bbwrap"
 
 
-rule samtools_sort:
-    input:
-        rules.refgenome.output.out
-    output:
-        "output/{run}/refgenome.bam"
-    params:
-        ""
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    threads: 4 # Samtools takes additional threads through its option -@
-    wrapper:
-        "0.50.4/bio/samtools/sort"
-
-
 rule replace_rg:
     input:
-        rules.samtools_sort.output
+        rules.refgenome.output.out
     output:
         "output/{run}/refgenome_fixed.bam"
     params:
@@ -199,9 +184,23 @@ rule replace_rg:
         WRAPPER_PREFIX + "master/picard/addorreplacereadgroups"
 
 
+rule samtools_sort:
+    input:
+        rules.replace_rg.output[0]
+    output:
+        "output/{run}/refgenome_sorted.bam"
+    params:
+        ""
+    resources:
+        runtime = 120,
+        mem_mb = 4000
+    threads: 4 # Samtools takes additional threads through its option -@
+    wrapper:
+        "0.50.4/bio/samtools/sort"
+
 rule genomecov:
     input:
-        ibam = rules.samtools_sort.output[0]
+        ibam = rules.replace_rg.output[0]
     output:
         "output/{run}/genomecov.bg"
     params:
@@ -220,14 +219,14 @@ rule genomecov:
 rule freebayes:
     input:
         ref = REF_GENOME,
-        samples = rules.samtools_sort.output
+        samples = rules.samtools_sort.output[0]
     output:
         "output/{run}/freebayes.vcf" 
     params:
         extra="--pooled-continuous --ploidy 1",
         pipe = ""
     resources:
-        runtime = 240,
+        runtime = 120,
         mem_mb = 4000
     threads: 1
     wrapper:
@@ -266,7 +265,7 @@ rule referencemaker:
         fai = "output/{run}/consensus.fa.fai"
     params:
         refmaker = "--lenient",
-        bam = rules.samtools_sort.output[0]
+        bam = rules.replace_rg.output[0]
     resources:
         runtime = 120,
         mem_mb = 4000    
@@ -432,7 +431,7 @@ rule fastqc:
 # Host mapping stats
 rule bamstats:
     input:
-        rules.samtools_sort.output
+        rules.replace_rg.output
     output:
         "output/{run}/bamstats.txt"
     resources:
