@@ -27,7 +27,7 @@ SAMPLES = {
 
 rule all:
     input:
-        expand("output/{sample}/consensus.fa", sample = SAMPLES.keys())
+        expand("output/{sample}/consensus.fa", sample = SAMPLES.keys()), "output/msa.fa"
 
 
 rule vcfcombine:
