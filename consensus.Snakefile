@@ -12,6 +12,7 @@ configfile: "config.yaml"
 validate(config, "schemas/config.schema.yaml")
 
 REF_GENOME = config["refgenome"]
+WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers/"
 
 SAMPLES = {
     "LB202": ["LB202", "LB202-I"],
