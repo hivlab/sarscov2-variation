@@ -80,7 +80,7 @@ rule fixfastaheader:
     output:
         "output/{sample}/consensus_fix.fa"
     params:
-        run = lambda wildcards: wildcards.sample
+        sample = lambda wildcards: wildcards.sample
     resources:
         runtime = 120,
         mem_mb = 2000
