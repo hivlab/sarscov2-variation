@@ -5,10 +5,7 @@ __license__ = "MIT"
 
 # Load libraries
 import os
-import json
-import glob
 import pandas as pd
-from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
 from snakemake.utils import validate, makedirs
 
 
