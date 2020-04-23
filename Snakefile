@@ -49,7 +49,6 @@ onsuccess:
 
 rule all:
     input: expand(["output/snpsift.csv", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
-# "output/{run}/msa.fa", "output/{run}/consensus.fa",
 
 def get_fastq(wildcards):
     fq_cols = [col for col in SAMPLES.columns if "fq" in col]
@@ -280,117 +279,6 @@ rule merge_tables:
         concatenated = pd.concat(files, names = ["Sample"])
         modified = concatenated.reset_index()
         modified.to_csv(output[0], index = False)
-        
-
-rule referencemaker:
-    input:
-        vcf = "output/{run}/freebayes.vcf",
-        ref = REF_GENOME
-    output:
-        idx = temp("output/{run}/freebayes.vcf.idx"),
-        fasta = "output/{run}/consensus.fa",
-        dic = "output/{run}/consensus.dict",
-        fai = "output/{run}/consensus.fa.fai"
-    params:
-        refmaker = "--lenient",
-        bam = rules.replace_rg.output[0]
-    resources:
-        runtime = 120,
-        mem_mb = 4000    
-    wrapper:
-        WRAPPER_PREFIX + "master/gatk/fastaalternatereferencemaker"
-
-
-rule fixfastaheader:
-    input:
-        rules.referencemaker.output.fasta
-    output:
-        "output/{run}/consensus_fix.fa"
-    params:
-        run = lambda wildcards: wildcards.run
-    resources:
-        runtime = 120,
-        mem_mb = 2000
-    shell:
-        "sed 's/>.*/>{params.run}/' {input[0]} > {output}"
-
-
-rule sarscov2seqs:
-    output:
-        "output/sars-cov-2/sequences.gb"
-    params:
-        email = "taavi.pall@ut.ee",
-        api_key = os.environ.get("NCBI_APIKEY")
-    resources:
-        runtime = 120,
-        mem_mb = 2000
-    wrapper:
-        "file:wrappers/sequences/get_gb"
-
-
-rule parsegb:
-    input:
-        "output/sars-cov-2/sequences.gb"
-    output:
-        fasta = "output/sars-cov-2/sequences.fa",
-        metadata = "output/sars-cov-2/metadata.tsv"
-    resources:
-        runtime = 120,
-        mem_mb = 2000
-    wrapper:
-        "file:wrappers/sequences/parse_gb"
-
-
-# Run cd-hit to cluster identical sequences
-# Shorter sequences will be clustered with longer ones if 
-# they are completely covered by longer one
-rule cd_hit:
-    input:
-        rules.parsegb.output.fasta
-    output:
-        repres = "output/sars-cov-2/cdhit.fa",
-        clstr = "output/sars-cov-2/cdhit.fa.clstr"
-    params:
-        extra = "-c 1 -G 0 -aS 1 -d 0 -M 0"
-    log:
-        "output/sars-cov-2/log/cdhit.log"
-    threads: 4
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    wrapper:
-        WRAPPER_PREFIX + "master/cdhit"
-
-
-rule align:
-    input:
-        "output/sars-cov-2/cdhit.fa"
-    output:
-        "output/sars-cov-2/msa.fa"
-    log:
-       "output/sars-cov-2/log/mafft.log"
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    wrapper:
-        "file:wrappers/mafft"
-
-
-rule merge:
-    input:
-        "output/{run}/consensus_fix.fa",
-        "output/sars-cov-2/msa.fa"
-    output:
-        "output/{run}/msa.fa"
-    params:
-        extra="--add"
-    log:
-       "output/{run}/log/mafft.log"
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    wrapper:
-        "file:wrappers/mafft"
 
 
 # Parse report
