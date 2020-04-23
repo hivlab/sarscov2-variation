@@ -61,7 +61,7 @@ rule referencemaker:
         vcf = "output/{sample}/freebayes_combined.vcf",
         ref = REF_GENOME
     output:
-        idx = temp("output/{sample}/freebayes.vcf.idx"),
+        idx = temp("output/{sample}/freebayes_combined.vcf.idx"),
         fasta = "output/{sample}/consensus.fa",
         dic = "output/{sample}/consensus.dict",
         fai = "output/{sample}/consensus.fa.fai"
