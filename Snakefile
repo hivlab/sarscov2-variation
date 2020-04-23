@@ -277,8 +277,9 @@ rule merge_tables:
         files = {}
         for file in input:
             files.update({file.split("/")[1]: pd.read_csv(file, sep = "\t")})
-        concatenated = pd.concat(files)
-        concatenated.to_csv(output[0], index = False)
+        concatenated = pd.concat(files, names = ["Sample"])
+        modified = concatenated.reset_index()
+        modified.to_csv(output[0], index = False)
         
 
 rule referencemaker:
