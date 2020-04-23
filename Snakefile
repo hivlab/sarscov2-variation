@@ -69,7 +69,7 @@ rule clumpify:
     params:
         extra = "dedupe optical reorder qin=33 -da" # suppress assertions
     resources:
-        runtime = 20,
+        runtime = 120,
         mem_mb = 4000
     log: 
         "output/{run}/log/clumpify.log"
@@ -85,7 +85,7 @@ rule trim:
     params:
         extra = "ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=70 ref=adapters,primers/primers.fa ftm=5 ordered qin=33"
     resources:
-        runtime = 20,
+        runtime = 120,
         mem_mb = 4000
     log: 
         "output/{run}/log/trim.log"
@@ -101,7 +101,7 @@ rule filter:
     params:
         extra = "k=31 ref=artifacts,phix ordered cardinality"
     resources:
-        runtime = 20,
+        runtime = 120,
         mem_mb = 4000
     log: 
         "output/{run}/log/filter.log"
@@ -121,7 +121,7 @@ rule maprRNA:
     params:
         extra = "maxlen=600 nodisk -Xmx16g"
     resources:
-        runtime = 30,
+        runtime = 120,
         mem_mb = 16000
     threads: 4
     wrapper:
@@ -140,7 +140,7 @@ rule maphost:
     params:
         extra = "maxlen=600 nodisk -Xmx24g"
     resources:
-        runtime = 30,
+        runtime = 150,
         mem_mb = 24000
     threads: 4
     wrapper:
@@ -163,41 +163,40 @@ rule refgenome:
     params:
         extra = "maxlen=600 nodisk -Xmx16g"
     resources:
-        runtime = 30,
+        runtime = 120,
         mem_mb = 16000
     threads: 4
     wrapper:
         WRAPPER_PREFIX + "master/bbtools/bbwrap"
 
 
-rule samtools_sort:
-    input:
-        rules.refgenome.output.out
-    output:
-        "output/{run}/refgenome.bam"
-    params:
-        ""
-    resources:
-        runtime = 20,
-        mem_mb = 4000
-    threads: 4 # Samtools takes additional threads through its option -@
-    wrapper:
-        "0.50.4/bio/samtools/sort"
-
-
 rule replace_rg:
     input:
-        rules.samtools_sort.output
+        rules.refgenome.output.out
     output:
         "output/{run}/refgenome_fixed.bam"
     params:
         lambda wildcards: "RGLB=lib1 RGPL={} RGPU={} RGSM={}".format(PLATFORM[wildcards.run], wildcards.run, wildcards.run)
     resources:
-        runtime = 10,
+        runtime = 120,
         mem_mb = 4000
     wrapper:
         WRAPPER_PREFIX + "master/picard/addorreplacereadgroups"
 
+
+rule samtools_sort:
+    input:
+        rules.replace_rg.output[0]
+    output:
+        "output/{run}/refgenome_sorted.bam"
+    params:
+        ""
+    resources:
+        runtime = 120,
+        mem_mb = 4000
+    threads: 4 # Samtools takes additional threads through its option -@
+    wrapper:
+        "0.50.4/bio/samtools/sort"
 
 rule genomecov:
     input:
@@ -207,7 +206,7 @@ rule genomecov:
     params:
         extra = "-bg"
     resources:
-        runtime = 20,
+        runtime = 120,
         mem_mb = lambda wildcards, attempt: attempt * 8000
     wrapper: 
         WRAPPER_PREFIX + "master/bedtools/genomecov"
@@ -220,14 +219,14 @@ rule genomecov:
 rule freebayes:
     input:
         ref = REF_GENOME,
-        samples = rules.replace_rg.output
+        samples = rules.samtools_sort.output[0]
     output:
         "output/{run}/freebayes.vcf" 
     params:
         extra="--pooled-continuous --ploidy 1",
         pipe = ""
     resources:
-        runtime = 20,
+        runtime = 120,
         mem_mb = 4000
     threads: 1
     wrapper:
@@ -249,7 +248,7 @@ rule snpeff:
         reference = "NC045512", # reference name (from `snpeff databases`)
         extra = "-c refseq/snpEffect.config -Xmx4g"          # optional parameters (e.g., max memory 4g)
     resources:
-        runtime = 20,
+        runtime = 120,
         mem_mb = 4000    
     wrapper:
         "0.50.4/bio/snpeff"
@@ -281,7 +280,7 @@ rule referencemaker:
         refmaker = "--lenient",
         bam = rules.replace_rg.output[0]
     resources:
-        runtime = 20,
+        runtime = 120,
         mem_mb = 4000    
     wrapper:
         WRAPPER_PREFIX + "master/gatk/fastaalternatereferencemaker"
@@ -294,6 +293,9 @@ rule fixfastaheader:
         "output/{run}/consensus_fix.fa"
     params:
         run = lambda wildcards: wildcards.run
+    resources:
+        runtime = 120,
+        mem_mb = 2000
     shell:
         "sed 's/>.*/>{params.run}/' {input[0]} > {output}"
 
@@ -304,6 +306,9 @@ rule sarscov2seqs:
     params:
         email = "taavi.pall@ut.ee",
         api_key = os.environ.get("NCBI_APIKEY")
+    resources:
+        runtime = 120,
+        mem_mb = 2000
     wrapper:
         "file:wrappers/sequences/get_gb"
 
@@ -314,6 +319,9 @@ rule parsegb:
     output:
         fasta = "output/sars-cov-2/sequences.fa",
         metadata = "output/sars-cov-2/metadata.tsv"
+    resources:
+        runtime = 120,
+        mem_mb = 2000
     wrapper:
         "file:wrappers/sequences/parse_gb"
 
@@ -333,7 +341,7 @@ rule cd_hit:
         "output/sars-cov-2/log/cdhit.log"
     threads: 4
     resources:
-        runtime = 30,
+        runtime = 120,
         mem_mb = 4000
     wrapper:
         WRAPPER_PREFIX + "master/cdhit"
@@ -347,7 +355,7 @@ rule align:
     log:
        "output/sars-cov-2/log/mafft.log"
     resources:
-        runtime = 30,
+        runtime = 120,
         mem_mb = 4000
     wrapper:
         "file:wrappers/mafft"
@@ -364,7 +372,7 @@ rule merge:
     log:
        "output/{run}/log/mafft.log"
     resources:
-        runtime = 30,
+        runtime = 120,
         mem_mb = 4000
     wrapper:
         "file:wrappers/mafft"
@@ -389,7 +397,7 @@ rule report:
     log: 
         "output/{run}/log/report.log"
     resources:
-        runtime = 10,
+        runtime = 120,
         mem_mb = 4000
     wrapper:
         "file:wrappers/report"
@@ -413,7 +421,7 @@ rule fastq_screen:
         fastq_screen_config = fastq_screen_config,
         subset = 100000
     resources:
-        runtime = 30,
+        runtime = 120,
         mem_mb = 8000    
     threads: 4
     wrapper:
@@ -427,7 +435,7 @@ rule fastqc:
         html = "output/{run}/fastqc.html",
         zip = "output/{run}/fastqc.zip"
     resources:
-        runtime = 20,
+        runtime = 120,
         mem_mb = 4000    
     wrapper:
         "0.27.1/bio/fastqc"
@@ -440,7 +448,7 @@ rule bamstats:
     output:
         "output/{run}/bamstats.txt"
     resources:
-        runtime = 20,
+        runtime = 120,
         mem_mb = 8000
     wrapper:
         "0.42.0/bio/samtools/stats"
@@ -459,7 +467,7 @@ rule multiqc:
     log:
         "output/multiqc.log"
     resources:
-        runtime = 20,
+        runtime = 120,
         mem_mb = 4000    
     wrapper:
       WRAPPER_PREFIX + "master/multiqc"
