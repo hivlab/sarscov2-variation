@@ -149,16 +149,28 @@ rule align:
         "file:wrappers/mafft"
 
 
+rule merge_consensus:
+    input:
+        expand("output/{sample}/consensus_fix.fa", sample = SAMPLES.keys())
+    output:
+        temp("output/consensus_fix.fa")
+    resources:
+        runtime = 120,
+        mem_mb = 4000
+    shell:
+        "cat {input} > {output}"
+
+
 rule merge:
     input:
-        "output/{sample}/consensus_fix.fa",
+        "output/consensus_fix.fa",
         "output/sars-cov-2/msa.fa"
     output:
-        "output/{sample}/msa.fa"
+        "output/msa.fa"
     params:
-        extra="--add"
+        extra="--addfragments"
     log:
-       "output/{sample}/log/mafft.log"
+       "output/log/mafft.log"
     resources:
         runtime = 120,
         mem_mb = 4000
