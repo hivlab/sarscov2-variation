@@ -48,8 +48,8 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/msa.fa", "output/{run}/consensus.fa", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
-
+    input: expand(["output/{run}/snpsift.vcf", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
+# "output/{run}/msa.fa", "output/{run}/consensus.fa",
 
 def get_fastq(wildcards):
     fq_cols = [col for col in SAMPLES.columns if "fq" in col]
@@ -253,6 +253,19 @@ rule snpeff:
         mem_mb = 4000    
     wrapper:
         "0.50.4/bio/snpeff"
+
+
+# Parse snpeff output to tabular format
+rule snpsift:
+    input:
+        rules.snpeff.output.calls
+    output:
+        "output/{run}/snpsift.vcf"
+    params:
+        extra = "-s ',' -e '.'",
+        fieldnames = "CHROM POS REF ALT QUAL AO SAF SAR RPR RPL FILTER AF SB DP ANN[*].IMPACT ANN[*].EFFECT ANN[*].GENE ANN[*].CODON"
+    wrapper:
+        WRAPPER_PREFIX + "master/snpsift"
 
 
 rule referencemaker:
