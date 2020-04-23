@@ -48,7 +48,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/snpsift.vcf", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
+    input: expand(["output/snpsift.csv", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
 # "output/{run}/msa.fa", "output/{run}/consensus.fa",
 
 def get_fastq(wildcards):
@@ -259,13 +259,27 @@ rule snpsift:
     input:
         rules.snpeff.output.calls
     output:
-        "output/{run}/snpsift.vcf"
+        "output/{run}/snpsift.txt"
     params:
         extra = "-s ',' -e '.'",
         fieldnames = "CHROM POS REF ALT QUAL AO SAF SAR RPR RPL FILTER AF SB DP ANN[*].IMPACT ANN[*].EFFECT ANN[*].GENE ANN[*].CODON"
     wrapper:
         WRAPPER_PREFIX + "master/snpsift"
 
+
+rule merge_tables:
+    input:
+        expand("output/{run}/snpsift.txt", run = RUN)
+    output:
+        "output/snpsift.csv"
+    run:
+        import pandas as pd
+        files = {}
+        for file in input:
+            files.update({file.split("/")[1]: pd.read_csv(file, sep = "\t")})
+        concatenated = pd.concat(files)
+        concatenated.to_csv(output, index = False)
+        
 
 rule referencemaker:
     input:
