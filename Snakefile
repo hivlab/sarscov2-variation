@@ -79,7 +79,7 @@ rule trim:
     output:
         out = temp("output/{run}/trimmed.fq")
     params:
-        extra = "ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=70 ref=adapters,primers/primers.fa ftm=5 ordered qin=33"
+        extra = "ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=100 ref=adapters,primers/primers.fa ftm=5 ordered qin=33"
     resources:
         runtime = 120,
         mem_mb = 4000
