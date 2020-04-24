@@ -45,7 +45,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/snpsift.csv", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
+    input: expand(["output/snpsift_lofreq.csv", "output/snpsift.csv", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
 
 def get_fastq(wildcards):
     fq_cols = [col for col in SAMPLES.columns if "fq" in col]
