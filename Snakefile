@@ -136,7 +136,7 @@ rule maphost:
     params:
         extra = "maxlen=600 nodisk -Xmx24g"
     resources:
-        runtime = 150,
+        runtime = lambda wildcards, attempt: attempt * 200,
         mem_mb = 24000
     threads: 4
     wrapper:
