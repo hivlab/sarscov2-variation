@@ -27,7 +27,7 @@ SAMPLES = {
 
 rule all:
     input:
-        expand("output/{sample}/{caller}_consensus.fa", sample = SAMPLES.keys(), caller = CALLER), expand("output/{caller}_msa.fa", caller = CALLER)
+        expand("output/{sample}/{caller}_consensus.fa", sample = SAMPLES.keys(), caller = CALLER)
 
 
 rule vcfcombine:
@@ -73,106 +73,3 @@ rule referencemaker:
     wrapper:
         WRAPPER_PREFIX + "master/gatk/fastaalternatereferencemaker"
 
-
-rule fixfastaheader:
-    input:
-        rules.referencemaker.output.fasta
-    output:
-        "output/{sample}/{caller}_consensus_fix.fa"
-    params:
-        sample = lambda wildcards: wildcards.sample
-    resources:
-        runtime = 120,
-        mem_mb = 2000
-    shell:
-        "sed 's/>.*/>{params.sample}/' {input[0]} > {output}"
-
-
-rule sarscov2seqs:
-    output:
-        "output/sars-cov-2/sequences.gb"
-    params:
-        email = "taavi.pall@ut.ee",
-        api_key = os.environ.get("NCBI_APIKEY")
-    resources:
-        runtime = 120,
-        mem_mb = 2000
-    wrapper:
-        "file:wrappers/sequences/get_gb"
-
-
-rule parsegb:
-    input:
-        "output/sars-cov-2/sequences.gb"
-    output:
-        fasta = "output/sars-cov-2/sequences.fa",
-        metadata = "output/sars-cov-2/metadata.tsv"
-    resources:
-        runtime = 120,
-        mem_mb = 2000
-    wrapper:
-        "file:wrappers/sequences/parse_gb"
-
-
-# Run cd-hit to cluster identical sequences
-# Shorter sequences will be clustered with longer ones if 
-# they are completely covered by longer one
-rule cd_hit:
-    input:
-        rules.parsegb.output.fasta
-    output:
-        repres = "output/sars-cov-2/cdhit.fa",
-        clstr = "output/sars-cov-2/cdhit.fa.clstr"
-    params:
-        extra = "-c 1 -G 0 -aS 1 -d 0 -M 0"
-    log:
-        "output/sars-cov-2/log/cdhit.log"
-    threads: 4
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    wrapper:
-        WRAPPER_PREFIX + "master/cdhit"
-
-
-rule align:
-    input:
-        "output/sars-cov-2/cdhit.fa"
-    output:
-        "output/sars-cov-2/msa.fa"
-    log:
-       "output/sars-cov-2/log/mafft.log"
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    wrapper:
-        "file:wrappers/mafft"
-
-
-rule merge_consensus:
-    input:
-        expand("output/{sample}/{{caller}}_consensus_fix.fa", sample = SAMPLES.keys())
-    output:
-        temp("output/{caller}_consensus_fix.fa")
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    shell:
-        "cat {input} > {output}"
-
-
-rule merge:
-    input:
-        "output/{caller}_consensus_fix.fa",
-        "output/sars-cov-2/msa.fa"
-    output:
-        "output/{caller}_msa.fa"
-    params:
-        extra="--addfragments"
-    log:
-       "output/log/{caller}_mafft.log"
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    wrapper:
-        "file:wrappers/mafft"
