@@ -50,7 +50,7 @@ rule vcffilter:
     output:
         "output/{sample}/{caller}_filtered.vcf"
     params:
-        extra = "-f 'QUAL > 30 & QUAL / AO > 10 & SAF > 0 & SAR > 0 & RPR > 1 & RPL > 1'"
+        extra = "-f 'QUAL > 30'"
     resources:
         runtime = 120,
         mem_mb = 4000
