@@ -153,7 +153,7 @@ rule merge_consensus:
     input:
         expand("output/{sample}/{{caller}}_consensus_fix.fa", sample = SAMPLES.keys())
     output:
-        temp("output/consensus_fix.fa")
+        temp("output/{caller}_consensus_fix.fa")
     resources:
         runtime = 120,
         mem_mb = 4000
