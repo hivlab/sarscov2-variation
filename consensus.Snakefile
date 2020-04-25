@@ -11,6 +11,7 @@ from snakemake.utils import validate, makedirs
 configfile: "config.yaml"
 validate(config, "schemas/config.schema.yaml")
 
+
 REF_GENOME = config["refgenome"]
 WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers/"
 CALLER = ["freebayes", "lofreq"]
@@ -24,6 +25,7 @@ SAMPLES = {
     "LB637": ["LB637", "LB637-I"],
     "LB236": ["LB236", "LB236-I"],
 }
+
 
 rule all:
     input:
@@ -58,10 +60,10 @@ rule vcffilter:
 
 rule referencemaker:
     input:
-        vcf = "output/{sample}/{caller}_combined.vcf",
+        vcf = "output/{sample}/{caller}_filtered.vcf",
         ref = REF_GENOME
     output:
-        idx = temp("output/{sample}/{caller}_combined.vcf.idx"),
+        idx = temp("output/{sample}/{caller}_filtered.vcf.idx"),
         fasta = "output/{sample}/{caller}_consensus.fa",
         dic = "output/{sample}/{caller}_consensus.dict",
         fai = "output/{sample}/{caller}_consensus.fa.fai"
