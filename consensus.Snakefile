@@ -13,6 +13,8 @@ validate(config, "schemas/config.schema.yaml")
 
 REF_GENOME = config["refgenome"]
 WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers/"
+CALLER = ["freebayes", "lofreq"]
+
 
 SAMPLES = {
     "LB202": ["LB202", "LB202-I"],
@@ -21,20 +23,18 @@ SAMPLES = {
     "LB228": ["LB228", "LB228-I"],
     "LB637": ["LB637", "LB637-I"],
     "LB236": ["LB236", "LB236-I"],
-    "LB775": ["LB775"],
-    "LC039": ["LC039"],
 }
 
 rule all:
     input:
-        expand("output/{sample}/consensus.fa", sample = SAMPLES.keys()), "output/msa.fa"
+        expand("output/{sample}/{caller}_consensus.fa", sample = SAMPLES.keys(), caller = CALLER), expand("output/{caller}_msa.fa", caller = CALLER)
 
 
 rule vcfcombine:
     input:
-        lambda wildcards: expand("output/{run}/freebayes.vcf", run = SAMPLES[wildcards.sample])
+        lambda wildcards: expand("output/{run}/{{caller}}.vcf", run = SAMPLES[wildcards.sample])
     output:
-        "output/{sample}/freebayes_combined.vcf"
+        "output/{sample}/{caller}_combined.vcf"
     resources:
         runtime = 120,
         mem_mb = 4000
@@ -44,9 +44,9 @@ rule vcfcombine:
 
 rule vcffilter:
     input:
-        "output/{sample}/freebayes_combined.vcf"
+        "output/{sample}/{caller}_combined.vcf"
     output:
-        "output/{sample}/freebayes_filtered.vcf"
+        "output/{sample}/{caller}_filtered.vcf"
     params:
         extra = "-f 'QUAL > 30 & QUAL / AO > 10 & SAF > 0 & SAR > 0 & RPR > 1 & RPL > 1'"
     resources:
@@ -58,13 +58,13 @@ rule vcffilter:
 
 rule referencemaker:
     input:
-        vcf = "output/{sample}/freebayes_combined.vcf",
+        vcf = "output/{sample}/{caller}_combined.vcf",
         ref = REF_GENOME
     output:
-        idx = temp("output/{sample}/freebayes_combined.vcf.idx"),
-        fasta = "output/{sample}/consensus.fa",
-        dic = "output/{sample}/consensus.dict",
-        fai = "output/{sample}/consensus.fa.fai"
+        idx = temp("output/{sample}/{caller}_combined.vcf.idx"),
+        fasta = "output/{sample}/{caller}_consensus.fa",
+        dic = "output/{sample}/{caller}_consensus.dict",
+        fai = "output/{sample}/{caller}_consensus.fa.fai"
     params:
         refmaker = "--lenient"
     resources:
@@ -78,7 +78,7 @@ rule fixfastaheader:
     input:
         rules.referencemaker.output.fasta
     output:
-        "output/{sample}/consensus_fix.fa"
+        "output/{sample}/{caller}_consensus_fix.fa"
     params:
         sample = lambda wildcards: wildcards.sample
     resources:
@@ -151,7 +151,7 @@ rule align:
 
 rule merge_consensus:
     input:
-        expand("output/{sample}/consensus_fix.fa", sample = SAMPLES.keys())
+        expand("output/{sample}/{{caller}}_consensus_fix.fa", sample = SAMPLES.keys())
     output:
         temp("output/consensus_fix.fa")
     resources:
@@ -163,14 +163,14 @@ rule merge_consensus:
 
 rule merge:
     input:
-        "output/consensus_fix.fa",
+        "output/{caller}_consensus_fix.fa",
         "output/sars-cov-2/msa.fa"
     output:
-        "output/msa.fa"
+        "output/{caller}_msa.fa"
     params:
         extra="--addfragments"
     log:
-       "output/log/mafft.log"
+       "output/log/{caller}_mafft.log"
     resources:
         runtime = 120,
         mem_mb = 4000
