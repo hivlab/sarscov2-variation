@@ -397,7 +397,12 @@ rule merge_tables_lofreq_pos:
         "output/snpsift_lofreq_pos.csv"
     run:
         import pandas as pd
-        merge_tabs(input, output[0])
+        files = {}
+        for file in input:
+            files.update({file.split("/")[1]: pd.read_csv(file, sep = "\t")})
+        concatenated = pd.concat(files, names = ["Sample"])
+        modified = concatenated.reset_index()
+        modified.to_csv(output[0], index = False)
 
 
 # Parse report
