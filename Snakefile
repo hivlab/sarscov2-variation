@@ -45,7 +45,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/snpsift_lofreq.csv", "output/snpsift.csv", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
+    input: expand(["output/{run}/lofreq_pos.vcf", "output/snpsift_lofreq.csv", "output/snpsift.csv", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
 
 def get_fastq(wildcards):
     fq_cols = [col for col in SAMPLES.columns if "fq" in col]
@@ -237,6 +237,22 @@ rule lofreq:
         "output/{run}/lofreq.vcf" 
     params:
         extra="--call-indels --min-cov 50 --min-bq 30 --min-alt-bq 30 --no-ext-baq --min-mq 20 --max-mq 255"
+    resources:
+        runtime = 120,
+        mem_mb = 4000
+    threads: 1
+    wrapper:
+        WRAPPER_PREFIX + "master/lofreq"
+
+
+rule lofreq_pos:
+    input:
+        ref = REF_GENOME,
+        bam = rules.samtools_sort.output[0]
+    output:
+        "output/{run}/lofreq_pos.vcf" 
+    params:
+        extra="-l refseq/positions.bed --call-indels --min-cov 50 --min-bq 30 --min-alt-bq 30 --no-ext-baq --min-mq 20 --max-mq 255"
     resources:
         runtime = 120,
         mem_mb = 4000
