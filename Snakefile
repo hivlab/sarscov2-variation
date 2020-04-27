@@ -392,7 +392,7 @@ rule merge_tables_lofreq:
 
 rule merge_tables_lofreq_pos:
     input:
-        expand("output/{run}/snpsift_lofreq.txt", run = RUN)
+        expand("output/{run}/snpsift_lofreq_pos.txt", run = RUN)
     output:
         "output/snpsift_lofreq_pos.csv"
     run:
