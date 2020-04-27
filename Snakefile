@@ -45,7 +45,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/snpsift_lofreq_pos.csv", "output/snpsift_lofreq.csv", "output/snpsift.csv", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
+    input: expand(["output/{run}/lofreq_pos.vcf", "output/snpsift_lofreq.csv", "output/snpsift.csv", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
 
 def get_fastq(wildcards):
     fq_cols = [col for col in SAMPLES.columns if "fq" in col]
@@ -55,15 +55,6 @@ def get_fastq(wildcards):
         return {"in1": fqs[0], "in2": fqs[1]}
     else:
         return {"input": fqs[0]}
-
-
-def merge_tabs(input, output):
-    files = {}
-    for file in input:
-        files.update({file.split("/")[1]: pd.read_csv(file, sep = "\t")})
-    concatenated = pd.concat(files, names = ["Sample"])
-    modified = concatenated.reset_index()
-    modified.to_csv(output[0], index = False)
 
 
 rule clumpify:
@@ -312,26 +303,6 @@ rule snpeff_lofreq:
         "0.50.4/bio/snpeff"
 
 
-rule snpeff_lofreq_pos:
-    input:
-        "output/{run}/lofreq_pos.vcf"
-    output:
-        calls = "output/{run}/snpeff_lofreq_pos.vcf",   # annotated calls (vcf, bcf, or vcf.gz)
-        stats = "output/{run}/snpeff_lofreq_pos.html",  # summary statistics (in HTML), optional
-        csvstats = "output/{run}/snpeff_lofreq_pos.csv", # summary statistics in CSV, optional
-        genes = "output/{run}/snpeff_lofreq_pos.genes.txt"
-    log:
-        "output/{run}/log/snpeff_lofreq.log"
-    params:
-        data_dir = "data",
-        reference = "NC045512", # reference name (from `snpeff databases`)
-        extra = "-c refseq/snpEffect.config -Xmx4g"          # optional parameters (e.g., max memory 4g)
-    resources:
-        runtime = 120,
-        mem_mb = 4000    
-    wrapper:
-        "0.50.4/bio/snpeff"
-
 
 # Parse snpeff output to tabular format
 rule snpsift:
@@ -358,18 +329,6 @@ rule snpsift_lofreq:
         WRAPPER_PREFIX + "master/snpsift"
 
 
-rule snpsift_lofreq_pos:
-    input:
-        rules.snpeff_lofreq_pos.output.calls
-    output:
-        "output/{run}/snpsift_lofreq_pos.txt"
-    params:
-        extra = "-s ',' -e '.'",
-        fieldnames = "CHROM POS REF ALT DP AF SB DP4 EFF[*].IMPACT EFF[*].FUNCLASS EFF[*].EFFECT EFF[*].GENE EFF[*].CODON"
-    wrapper:
-        WRAPPER_PREFIX + "master/snpsift"
-
-
 rule merge_tables:
     input:
         expand("output/{run}/snpsift.txt", run = RUN)
@@ -377,7 +336,12 @@ rule merge_tables:
         "output/snpsift.csv"
     run:
         import pandas as pd
-        merge_tabs(input, output[0])
+        files = {}
+        for file in input:
+            files.update({file.split("/")[1]: pd.read_csv(file, sep = "\t")})
+        concatenated = pd.concat(files, names = ["Sample"])
+        modified = concatenated.reset_index()
+        modified.to_csv(output[0], index = False)
 
 
 rule merge_tables_lofreq:
@@ -385,16 +349,6 @@ rule merge_tables_lofreq:
         expand("output/{run}/snpsift_lofreq.txt", run = RUN)
     output:
         "output/snpsift_lofreq.csv"
-    run:
-        import pandas as pd
-        merge_tabs(input, output[0])
-
-
-rule merge_tables_lofreq_pos:
-    input:
-        expand("output/{run}/snpsift_lofreq_pos.txt", run = RUN)
-    output:
-        "output/snpsift_lofreq_pos.csv"
     run:
         import pandas as pd
         files = {}
