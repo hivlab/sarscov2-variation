@@ -32,3 +32,16 @@ p <- cov_long %>%
   facet_wrap(~Sample) +
   scale_y_log10()
 ggplotly(p)
+
+basecoverage <- cov_long %>% 
+  mutate(pos = map2(start, end, ~seq(.x, .y - 1))) %>% 
+  select(Sample, Run, pos, n) %>% 
+  unnest(cols = pos)
+basecoverage %>% 
+  group_by(Sample, pos) %>% 
+  summarise(n = sum(n)) %>% 
+  filter(n > 10) %>% 
+  group_by(Sample) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  mutate(`%` = (n / 29903) * 100)
