@@ -28,7 +28,7 @@ SAMPLES = {
 
 rule all:
     input:
-        expand("output/merged-{sample}/consensus.fa", sample = SAMPLES.keys())
+        expand("output/merged-{sample}/consensus.fa", sample = SAMPLES.keys()), "output/consensus.fa"
 
 
 rule vcfcombine:
@@ -63,9 +63,9 @@ rule referencemaker:
         ref = REF_GENOME
     output:
         idx = temp("output/merged-{sample}/filtered.vcf.idx"),
-        fasta = "output/merged-{sample}/consensus.fa",
-        dic = "output/merged-{sample}/consensus.dict",
-        fai = "output/merged-{sample}/consensus.fa.fai"
+        fasta = "output/merged-{sample}/consensus_badname.fa",
+        dic = "output/merged-{sample}/consensus_badname.dict",
+        fai = "output/merged-{sample}/consensus_badname.fa.fai"
     params:
         refmaker = "--lenient"
     resources:
@@ -78,7 +78,7 @@ rule rename:
     input:
         rules.referencemaker.output.fasta
     output:
-        "output/merged-{sample}/consensus_rename.fa"
+        "output/merged-{sample}/consensus.fa"
     params:
         sample = lambda wildcards: wildcards.sample,
         stub = "SARS-CoV-2/human/Estonia/"
@@ -90,7 +90,7 @@ rule rename:
 
 rule merge_renamed:
     input:
-        expand("output/merged-{sample}/consensus_rename.fa", sample = sample = SAMPLES.keys())
+        expand("output/merged-{sample}/consensus.fa", sample = SAMPLES.keys())
     output:
         "output/consensus.fa"
     resources:
