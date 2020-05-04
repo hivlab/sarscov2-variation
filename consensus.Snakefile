@@ -74,3 +74,27 @@ rule referencemaker:
     wrapper:
         WRAPPER_PREFIX + "master/gatk/fastaalternatereferencemaker"
 
+rule rename:
+    input:
+        rules.referencemaker.output.fasta
+    output:
+        "output/merged-{sample}/consensus_rename.fa"
+    params:
+        sample = lambda wildcards: wildcards.sample,
+        stub = "SARS-CoV-2/human/Estonia/"
+    resources:
+        runtime = 120,
+        mem_mb = 2000    
+    wrapper:
+        WRAPPER_PREFIX + "master/sequences/rename_fasta"
+
+rule merge_renamed:
+    input:
+        expand("output/merged-{sample}/consensus_rename.fa", sample = sample = SAMPLES.keys())
+    output:
+        "output/consensus.fa"
+    resources:
+        runtime = 120,
+        mem_mb = 2000   
+    shell:
+        "cat {input} > {output}"
