@@ -45,7 +45,7 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/{run}/lofreq_pos.vcf", "output/snpsift_lofreq.csv", "output/snpsift.csv", "output/{run}/report.html", "output/multiqc.html", "output/{run}/freebayes.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
+    input: expand(["output/snpsift.csv", "output/{run}/report.html", "output/multiqc.html", "output/{run}/lofreq.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
 
 def get_fastq(wildcards):
     fq_cols = [col for col in SAMPLES.columns if "fq" in col]
@@ -194,6 +194,7 @@ rule samtools_sort:
     wrapper:
         "0.50.4/bio/samtools/sort"
 
+
 rule genomecov:
     input:
         ibam = rules.replace_rg.output[0]
@@ -212,23 +213,6 @@ rule genomecov:
 # "Removes any sites with estimated probability of not being polymorphic 
 # less than phred 20 (aka 0.01), or probability of polymorphism > 0.99"
 # from FreeBayes user manual.
-rule freebayes:
-    input:
-        ref = REF_GENOME,
-        samples = rules.samtools_sort.output[0]
-    output:
-        "output/{run}/freebayes.vcf" 
-    params:
-        extra="--pooled-continuous --ploidy 1",
-        pipe = ""
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    threads: 1
-    wrapper:
-        WRAPPER_PREFIX + "master/freebayes"
-
-
 rule lofreq:
     input:
         ref = REF_GENOME,
@@ -245,51 +229,14 @@ rule lofreq:
         WRAPPER_PREFIX + "master/lofreq"
 
 
-rule lofreq_pos:
-    input:
-        ref = REF_GENOME,
-        bam = rules.samtools_sort.output[0]
-    output:
-        "output/{run}/lofreq_pos.vcf" 
-    params:
-        extra="-l refseq/positions.bed --call-indels --min-cov 50 --min-bq 30 --min-alt-bq 30 --no-ext-baq --min-mq 20 --max-mq 255"
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    threads: 1
-    wrapper:
-        WRAPPER_PREFIX + "master/lofreq"
-
-
 rule snpeff:
     input:
-        "output/{run}/freebayes.vcf"
+        "output/{run}/lofreq.vcf"
     output:
         calls = "output/{run}/snpeff.vcf",   # annotated calls (vcf, bcf, or vcf.gz)
         stats = "output/{run}/snpeff.html",  # summary statistics (in HTML), optional
         csvstats = "output/{run}/snpeff.csv", # summary statistics in CSV, optional
         genes = "output/{run}/snpeff.genes.txt"
-    log:
-        "output/{run}/log/snpeff.log"
-    params:
-        data_dir = "data",
-        reference = "NC045512", # reference name (from `snpeff databases`)
-        extra = "-c refseq/snpEffect.config -Xmx4g"          # optional parameters (e.g., max memory 4g)
-    resources:
-        runtime = 120,
-        mem_mb = 4000    
-    wrapper:
-        "0.50.4/bio/snpeff"
-
-
-rule snpeff_lofreq:
-    input:
-        "output/{run}/lofreq.vcf"
-    output:
-        calls = "output/{run}/snpeff_lofreq.vcf",   # annotated calls (vcf, bcf, or vcf.gz)
-        stats = "output/{run}/snpeff_lofreq.html",  # summary statistics (in HTML), optional
-        csvstats = "output/{run}/snpeff_lofreq.csv", # summary statistics in CSV, optional
-        genes = "output/{run}/snpeff_lofreq.genes.txt"
     log:
         "output/{run}/log/snpeff_lofreq.log"
     params:
@@ -312,18 +259,6 @@ rule snpsift:
         "output/{run}/snpsift.txt"
     params:
         extra = "-s ',' -e '.'",
-        fieldnames = "CHROM POS REF ALT QUAL AO SAF SAR RPR RPL FILTER AF SB DP ANN[*].IMPACT ANN[*].EFFECT ANN[*].GENE ANN[*].CODON"
-    wrapper:
-        WRAPPER_PREFIX + "master/snpsift"
-
-
-rule snpsift_lofreq:
-    input:
-        rules.snpeff_lofreq.output.calls
-    output:
-        "output/{run}/snpsift_lofreq.txt"
-    params:
-        extra = "-s ',' -e '.'",
         fieldnames = "CHROM POS REF ALT DP AF SB DP4 EFF[*].IMPACT EFF[*].FUNCLASS EFF[*].EFFECT EFF[*].GENE EFF[*].CODON"
     wrapper:
         WRAPPER_PREFIX + "master/snpsift"
@@ -334,21 +269,6 @@ rule merge_tables:
         expand("output/{run}/snpsift.txt", run = RUN)
     output:
         "output/snpsift.csv"
-    run:
-        import pandas as pd
-        files = {}
-        for file in input:
-            files.update({file.split("/")[1]: pd.read_csv(file, sep = "\t")})
-        concatenated = pd.concat(files, names = ["Sample"])
-        modified = concatenated.reset_index()
-        modified.to_csv(output[0], index = False)
-
-
-rule merge_tables_lofreq:
-    input:
-        expand("output/{run}/snpsift_lofreq.txt", run = RUN)
-    output:
-        "output/snpsift_lofreq.csv"
     run:
         import pandas as pd
         files = {}
