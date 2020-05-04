@@ -14,7 +14,6 @@ validate(config, "schemas/config.schema.yaml")
 
 REF_GENOME = config["refgenome"]
 WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers/"
-CALLER = ["freebayes", "lofreq"]
 
 
 SAMPLES = {
@@ -29,14 +28,14 @@ SAMPLES = {
 
 rule all:
     input:
-        expand("output/{sample}/{caller}_consensus.fa", sample = SAMPLES.keys(), caller = CALLER)
+        expand("output/merged-{sample}/consensus.fa", sample = SAMPLES.keys())
 
 
 rule vcfcombine:
     input:
-        lambda wildcards: expand("output/{run}/{{caller}}.vcf", run = SAMPLES[wildcards.sample])
+        lambda wildcards: expand("output/{run}/lofreq.vcf", run = SAMPLES[wildcards.sample])
     output:
-        "output/{sample}/{caller}_combined.vcf"
+        "output/merged-{sample}/combined.vcf"
     resources:
         runtime = 120,
         mem_mb = 4000
@@ -46,11 +45,11 @@ rule vcfcombine:
 
 rule vcffilter:
     input:
-        "output/{sample}/{caller}_combined.vcf"
+        "output/merged-{sample}/combined.vcf"
     output:
-        "output/{sample}/{caller}_filtered.vcf"
+        "output/merged-{sample}/filtered.vcf"
     params:
-        extra = "-f 'QUAL > 30 & AF > 0.8'"
+        extra = "-f 'QUAL > 30 & AF > 0.5'"
     resources:
         runtime = 120,
         mem_mb = 4000
@@ -60,13 +59,13 @@ rule vcffilter:
 
 rule referencemaker:
     input:
-        vcf = "output/{sample}/{caller}_filtered.vcf",
+        vcf = "output/merged-{sample}/filtered.vcf",
         ref = REF_GENOME
     output:
-        idx = temp("output/{sample}/{caller}_filtered.vcf.idx"),
-        fasta = "output/{sample}/{caller}_consensus.fa",
-        dic = "output/{sample}/{caller}_consensus.dict",
-        fai = "output/{sample}/{caller}_consensus.fa.fai"
+        idx = temp("output/merged-{sample}/filtered.vcf.idx"),
+        fasta = "output/merged-{sample}/consensus.fa",
+        dic = "output/merged-{sample}/consensus.dict",
+        fai = "output/merged-{sample}/consensus.fa.fai"
     params:
         refmaker = "--lenient"
     resources:
