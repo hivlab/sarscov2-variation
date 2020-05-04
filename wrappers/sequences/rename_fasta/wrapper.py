@@ -11,6 +11,6 @@ with open(snakemake.input[0], "r") as input_handle, open(
 ) as output_handle:
     for record in SeqIO.parse(input_handle, "fasta"):
         h.update(sample.encode("utf-8"))
-        record.id = h.hexdigest()
-        record.description = stub + h.hexdigest()
+        record.id = stub.format(h.hexdigest()[:10])
+        record.description = ""
         SeqIO.write(record, output_handle, "fasta")

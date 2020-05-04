@@ -1,0 +1,11 @@
+
+rule rename:
+    input:
+        "seq.fa"
+    output:
+        "renamed.fa"
+    params:
+        sample = "XY123",
+        stub = "SARS-CoV-2/human/EU/{}/2020"
+    wrapper:
+        "file:../wrapper.py"

@@ -81,7 +81,7 @@ rule rename:
         "output/merged-{sample}/consensus.fa"
     params:
         sample = lambda wildcards: wildcards.sample,
-        stub = "SARS-CoV-2/human/Estonia/"
+        stub = "SARS-CoV-2/human/Estonia/{}/2020"
     resources:
         runtime = 120,
         mem_mb = 2000    
