@@ -86,7 +86,7 @@ rule rename:
         runtime = 120,
         mem_mb = 2000    
     wrapper:
-        WRAPPER_PREFIX + "master/sequences/rename_fasta"
+        "file:wrappers/sequences/rename_fasta"
 
 rule merge_renamed:
     input:
