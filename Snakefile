@@ -220,7 +220,7 @@ rule lofreq:
     output:
         "output/{run}/lofreq.vcf" 
     params:
-        extra="--call-indels --min-cov 50 --min-bq 30 --min-alt-bq 30 --no-ext-baq --min-mq 20 --max-mq 255"
+        extra="--call-indels --min-cov 50 --max-depth 1000000 --min-bq 30 --min-alt-bq 30 --def-alt-bq 0 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter"
     resources:
         runtime = 120,
         mem_mb = 4000
