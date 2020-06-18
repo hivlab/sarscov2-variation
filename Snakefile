@@ -79,7 +79,7 @@ rule trim:
     output:
         out = temp("output/{run}/trimmed.fq")
     params:
-        extra = "ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=100 ref=adapters,primers/primers.fa ftm=5 ordered qin=33"
+        extra = "maq=10 qtrim=r trimq=10 ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=100 ref=adapters,primers/primers.fa ftm=5 ordered qin=33"
     resources:
         runtime = 120,
         mem_mb = 4000
@@ -115,7 +115,7 @@ rule maprRNA:
         outm = "output/{run}/maprRNA.fq",
         statsfile = "output/{run}/maprrna.txt"
     params:
-        extra = "maxlen=600 nodisk -Xmx16g"
+        extra = extra = lambda wildcards, resources: "maxlen=600 nodisk -Xmx{}m".format(resources.mem_mb)
     resources:
         runtime = 120,
         mem_mb = 16000
@@ -134,7 +134,7 @@ rule maphost:
         outm = "output/{run}/maphost.fq",
         statsfile = "output/{run}/maphost.txt"
     params:
-        extra = "maxlen=600 nodisk -Xmx24g"
+        extra = extra = lambda wildcards, resources: "maxlen=600 nodisk -Xmx{}m".format(resources.mem_mb)
     resources:
         runtime = lambda wildcards, attempt: attempt * 200,
         mem_mb = 24000
@@ -157,27 +157,13 @@ rule refgenome:
         mhist = "output/{run}/mhist.txt",
         bhist = "output/{run}/bhist.txt",
     params:
-        extra = "maxlen=600 nodisk -Xmx16g"
+        extra = lambda wildcards, resources: "maxindel=200 strictmaxindel minid=0.9 maxlen=600 nodisk -Xmx{}m RGLB=lib1 RGPL={} RGPU={} RGSM={}".format(resources.mem_mb, PLATFORM[wildcards.run], wildcards.run, wildcards.run)
     resources:
         runtime = 120,
         mem_mb = 16000
     threads: 4
     wrapper:
         WRAPPER_PREFIX + "master/bbtools/bbwrap"
-
-
-rule replace_rg:
-    input:
-        rules.refgenome.output.out
-    output:
-        "output/{run}/refgenome_fixed.bam"
-    params:
-        lambda wildcards: "RGLB=lib1 RGPL={} RGPU={} RGSM={}".format(PLATFORM[wildcards.run], wildcards.run, wildcards.run)
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    wrapper:
-        WRAPPER_PREFIX + "master/picard/addorreplacereadgroups"
 
 
 rule samtools_sort:
