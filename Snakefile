@@ -331,7 +331,7 @@ rule fastqc:
 # Host mapping stats
 rule bamstats:
     input:
-        rules.rsamtools_sort.output
+        rules.samtools_sort.output
     output:
         "output/{run}/bamstats.txt"
     resources:
