@@ -168,7 +168,7 @@ rule refgenome:
 
 rule samtools_sort:
     input:
-        rules.replace_rg.output[0]
+        rules.refgenome.output[0]
     output:
         "output/{run}/refgenome_sorted.bam"
     params:
