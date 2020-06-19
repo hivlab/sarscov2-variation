@@ -134,7 +134,7 @@ rule maphost:
         outm = "output/{run}/maphost.fq",
         statsfile = "output/{run}/maphost.txt"
     params:
-        extra = extra = lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
+        extra = lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
     resources:
         runtime = lambda wildcards, attempt: attempt * 200,
         mem_mb = 24000
