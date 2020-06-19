@@ -183,7 +183,7 @@ rule samtools_sort:
 
 rule genomecov:
     input:
-        ibam = rules.replace_rg.output[0]
+        ibam = rules.samtools_sort.output[0]
     output:
         "output/{run}/genomecov.bg"
     params:
@@ -331,7 +331,7 @@ rule fastqc:
 # Host mapping stats
 rule bamstats:
     input:
-        rules.replace_rg.output
+        rules.rsamtools_sort.output
     output:
         "output/{run}/bamstats.txt"
     resources:
