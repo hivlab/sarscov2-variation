@@ -143,16 +143,27 @@ info <- c("##FILTER", "##INFO", "##FORMAT") %>%
   map(~grep(., comments, value = TRUE)) %>% 
   map(parse_vcf_info) %>% 
   str_c(collapse = " ")
+
+parse_info <- function(data) {
+  data <- str_split(data, ";")
+  data = map(data, str_split, "=")
+  data = map(data, transpose)
+  data = map(data, ~map(.x, unlist))
+  read_delim(
+    str_c(
+      str_c(data[[1]][[1]], collapse = " "), 
+      str_c(data[[1]][[2]], collapse = " "), 
+      sep = "\n"
+      ), 
+    delim = " ", 
+    col_types = "dddc"
+    )
+}
+
 vcf %>% 
-  mutate(INFO = str_split(INFO, ";"),
-         vars = map(INFO, str_extract, "^[A-z]+"),
-         values = map(INFO, str_extract, "\\d+$"),
-         values = map(values, as.numeric),
-         values = map(values, ~as_tibble(matrix(.x, ncol = length(.x)))),
-         INFO = map2(vars, values, function(x, y) {colnames(y) <- x; y}),
-         ALT = if_else(str_length(ALT) > 10, str_c(str_sub(ALT, 1, 10), "..."), ALT)) %>% 
+  mutate(INFO = map(INFO, parse_info),
+         ALT = if_else(str_length(ALT) > 10, str_c(str_sub(ALT, 1, 10), "..."), ALT)) %>%
   unnest(INFO) %>% 
-  select(-vars, -values) %>% 
   datatable(
     rownames = FALSE, 
     caption = str_c("Table 1. Variant calling summary. ", info),
