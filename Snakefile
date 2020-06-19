@@ -115,7 +115,7 @@ rule maprRNA:
         outm = "output/{run}/maprRNA.fq",
         statsfile = "output/{run}/maprrna.txt"
     params:
-        extra = extra = lambda wildcards, resources: "maxlen=600 nodisk -Xmx{}m".format(resources.mem_mb)
+        extra = extra = lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
     resources:
         runtime = 120,
         mem_mb = 16000
@@ -134,7 +134,7 @@ rule maphost:
         outm = "output/{run}/maphost.fq",
         statsfile = "output/{run}/maphost.txt"
     params:
-        extra = extra = lambda wildcards, resources: "maxlen=600 nodisk -Xmx{}m".format(resources.mem_mb)
+        extra = extra = lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
     resources:
         runtime = lambda wildcards, attempt: attempt * 200,
         mem_mb = 24000
@@ -157,7 +157,7 @@ rule refgenome:
         mhist = "output/{run}/mhist.txt",
         bhist = "output/{run}/bhist.txt",
     params:
-        extra = lambda wildcards, resources: "maxindel=200 strictmaxindel minid=0.9 maxlen=600 nodisk -Xmx{}m RGLB=lib1 RGPL={} RGPU={} RGSM={}".format(resources.mem_mb, PLATFORM[wildcards.run], wildcards.run, wildcards.run)
+        extra = lambda wildcards, resources: f"maxindel=200 strictmaxindel minid=0.9 maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g RGLB=lib1 RGPL={PLATFORM[wildcards.run]} RGPU={wildcards.run} RGSM={wildcards.run}"
     resources:
         runtime = 120,
         mem_mb = 16000
@@ -228,7 +228,7 @@ rule snpeff:
     params:
         data_dir = "data",
         reference = "NC045512", # reference name (from `snpeff databases`)
-        extra = "-c refseq/snpEffect.config -Xmx4g"          # optional parameters (e.g., max memory 4g)
+        extra = lambda wildcards, resources: f"-c refseq/snpEffect.config -Xmx{resources.mem_mb / 1000:.0f}g"          # optional parameters (e.g., max memory 4g)
     resources:
         runtime = 120,
         mem_mb = 4000    
