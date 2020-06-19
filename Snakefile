@@ -275,7 +275,7 @@ rule report:
         mhist = "output/{run}/mhist.txt",
         bhist = "output/{run}/bhist.txt",
         genomecov = "output/{run}/genomecov.bg",
-        vcf = "output/{run}/freebayes.vcf"
+        vcf = "output/{run}/lofreq.vcf"
     output:
         "output/{run}/report.html"
     params:
