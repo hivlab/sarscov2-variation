@@ -115,7 +115,7 @@ rule maprRNA:
         outm = "output/{run}/maprRNA.fq",
         statsfile = "output/{run}/maprrna.txt"
     params:
-        extra = extra = lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
+        extra = lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
     resources:
         runtime = 120,
         mem_mb = 16000
