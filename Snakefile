@@ -56,14 +56,31 @@ def get_fastq(wildcards):
     else:
         return {"input": fqs[0]}
 
-
-rule clumpify:
+rule repair:
     input:
         unpack(get_fastq)
     output:
+        out = "output/{run}/repair_R1.fq",
+        out2 = "output/{run}/repair_R2.fq"
+    params:
+        extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g" # suppress assertions
+    resources:
+        runtime = 120,
+        mem_mb = 4000
+    log: 
+        "output/{run}/log/repair.log"
+    wrapper:
+        WRAPPER_PREFIX + "master/bbtools/repair"
+
+
+rule clumpify:
+    input:
+        in1 = rules.repair.output.out,
+        in2 = rules.repair.output.out2
+    output:
         out = temp("output/{run}/clumpify.fq")
     params:
-        extra = lambda wildcards, threads: f"t={threads} dedupe qin=33" # suppress assertions
+        extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g dedupe optical spany adjacent markduplicates optical qin=33" # suppress assertions
     resources:
         runtime = 120,
         mem_mb = 4000
@@ -80,7 +97,7 @@ rule trim:
     output:
         out = temp("output/{run}/trimmed.fq")
     params:
-        extra = "maq=10 qtrim=r trimq=10 ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=100 ref=adapters,primers/primers.fa ftm=5 ordered qin=33"
+        extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g maq=10 qtrim=r trimq=10 ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=100 ref=adapters,primers/primers.fa ftm=5 ordered qin=33"
     resources:
         runtime = 120,
         mem_mb = 4000
@@ -96,7 +113,7 @@ rule filter:
     output:
         out = "output/{run}/filtered.fq"
     params:
-        extra = "k=31 ref=artifacts,phix ordered cardinality"
+        extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g k=31 ref=artifacts,phix ordered cardinality"
     resources:
         runtime = 120,
         mem_mb = 4000
@@ -213,7 +230,7 @@ rule lofreq:
         mem_mb = 4000
     threads: 1
     wrapper:
-        WRAPPER_PREFIX + "master/lofreq"
+        WRAPPER_PREFIX + "master/lofreq/call"
 
 
 rule snpeff:
