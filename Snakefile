@@ -63,7 +63,7 @@ rule clumpify:
     output:
         out = temp("output/{run}/clumpify.fq")
     params:
-        extra = "dedupe optical reorder qin=33 -da" # suppress assertions
+        extra = "dedupe optical spany adjacent markduplicates optical reorder qin=33 -da" # suppress assertions
     resources:
         runtime = 120,
         mem_mb = 4000
