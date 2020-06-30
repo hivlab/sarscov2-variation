@@ -68,7 +68,7 @@ rule repair:
         runtime = 120,
         mem_mb = 4000
     log: 
-        "output/{run}/log/clumpify.log"
+        "output/{run}/log/repair.log"
     wrapper:
         WRAPPER_PREFIX + "master/bbtools/repair"
 
@@ -80,7 +80,7 @@ rule clumpify:
     output:
         out = temp("output/{run}/clumpify.fq")
     params:
-        extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g dedupe optical spany adjacent markduplicates optical qin=33 -da" # suppress assertions
+        extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g dedupe optical spany adjacent markduplicates optical qin=33" # suppress assertions
     resources:
         runtime = 120,
         mem_mb = 4000
