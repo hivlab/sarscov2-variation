@@ -63,10 +63,11 @@ rule clumpify:
     output:
         out = temp("output/{run}/clumpify.fq")
     params:
-        extra = "dedupe optical spany adjacent markduplicates optical reorder qin=33 -da" # suppress assertions
+        extra = lambda wildcards, threads: f"t={threads} dedupe qin=33" # suppress assertions
     resources:
         runtime = 120,
         mem_mb = 4000
+    threads: 8
     log: 
         "output/{run}/log/clumpify.log"
     wrapper:
