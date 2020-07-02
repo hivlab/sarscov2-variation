@@ -1,6 +1,9 @@
 $schema: "http://json-schema.org/draft-07/schema#"
 description: an entry in the sample sheet
 properties:
+  sample:
+    type: string
+    description:  sample identifier
   run:
     type: string
     description: sequencing run name/identifier
@@ -16,3 +19,4 @@ properties:
 
 required:
   - run
+  - sample

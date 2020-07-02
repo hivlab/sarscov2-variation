@@ -15,10 +15,12 @@ validate(config, "schemas/config.schema.yaml")
 
 
 # Load runs and groups
-SAMPLES = pd.read_csv(config["samples"], sep="\s+", dtype=str).set_index(["run"], drop=False)
-validate(SAMPLES, "schemas/samples.schema.yaml")
-RUN = SAMPLES.index.tolist()
-PLATFORM = SAMPLES.platform
+df = pd.read_csv("samples.tsv", sep="\s+", dtype=str).set_index(["sample","run"], drop=False)
+validate(df, "schemas/samples.schema.yaml")
+samples = df.groupby(level=0).apply(lambda df: df.xs(df.name)["run"].tolist()).to_dict()
+SAMPLE = [sample for sample,run in df.index.tolist()]
+RUN = [run for sample,run in df.index.tolist()]
+PLATFORM = df.platform
 
 
 # Path to reference genomes
@@ -45,11 +47,15 @@ onsuccess:
 
 
 rule all:
-    input: expand(["output/snpsift.csv", "output/{run}/report.html", "output/multiqc.html", "output/{run}/lofreq.vcf", "output/{run}/filtered.fq", "output/{run}/unmaphost.fq", "output/{run}/fastq_screen.txt", "output/{run}/fastqc.zip"], run = RUN)
+    input: 
+        "output/snpsift.csv", 
+        "output/multiqc.html",
+        expand(["output/{sample}/report.html", "output/{sample}/lofreq.vcf"], sample = list(samples.keys())),
+        expand(["output/{sample}/{run}/filtered.fq", "output/{sample}/{run}/unmaphost.fq", "output/{sample}/{run}/fastq_screen.txt", "output/{sample}/{run}/fastqc.zip"], zip, sample = SAMPLE, run = RUN)
 
 def get_fastq(wildcards):
-    fq_cols = [col for col in SAMPLES.columns if "fq" in col]
-    fqs = SAMPLES.loc[wildcards.run, fq_cols].dropna()
+    fq_cols = [col for col in df.columns if "fq" in col]
+    fqs = df.loc[(wildcards.sample, wildcards.run), fq_cols].dropna()
     assert len(fq_cols) in [1, 2], "Enter one or two FASTQ file paths"
     if len(fq_cols) == 2:
         return {"in1": fqs[0], "in2": fqs[1]}
@@ -60,15 +66,15 @@ rule repair:
     input:
         unpack(get_fastq)
     output:
-        out = "output/{run}/repair_R1.fq",
-        out2 = "output/{run}/repair_R2.fq"
+        out = "output/{sample}/{run}/repair_R1.fq",
+        out2 = "output/{sample}/{run}/repair_R2.fq"
     params:
         extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g" # suppress assertions
     resources:
         runtime = 120,
         mem_mb = 4000
     log: 
-        "output/{run}/log/repair.log"
+        "output/{sample}/{run}/log/repair.log"
     wrapper:
         f"{WRAPPER_PREFIX}/master/bbtools/repair"
 
@@ -78,7 +84,7 @@ rule clumpify:
         in1 = rules.repair.output.out,
         in2 = rules.repair.output.out2
     output:
-        out = temp("output/{run}/clumpify.fq")
+        out = temp("output/{sample}/{run}/clumpify.fq")
     params:
         extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g dedupe optical spany adjacent markduplicates optical qin=33" # suppress assertions
     resources:
@@ -86,7 +92,7 @@ rule clumpify:
         mem_mb = 4000
     threads: 8
     log: 
-        "output/{run}/log/clumpify.log"
+        "output/{sample}/{run}/log/clumpify.log"
     wrapper:
         f"{WRAPPER_PREFIX}/master/bbtools/clumpify"
 
@@ -95,14 +101,14 @@ rule trim:
     input:
         input = rules.clumpify.output.out
     output:
-        out = temp("output/{run}/trimmed.fq")
+        out = temp("output/{sample}/{run}/trimmed.fq")
     params:
         extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g maq=10 qtrim=r trimq=10 ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=100 ref=adapters,primers/primers.fa ftm=5 ordered qin=33"
     resources:
         runtime = 120,
         mem_mb = 4000
     log: 
-        "output/{run}/log/trim.log"
+        "output/{sample}/{run}/log/trim.log"
     wrapper:
         f"{WRAPPER_PREFIX}/master/bbtools/bbduk"
 
@@ -111,14 +117,14 @@ rule filter:
     input:
         input = rules.trim.output.out
     output:
-        out = "output/{run}/filtered.fq"
+        out = "output/{sample}/{run}/filtered.fq"
     params:
         extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g k=31 ref=artifacts,phix ordered cardinality"
     resources:
         runtime = 120,
         mem_mb = 4000
     log: 
-        "output/{run}/log/filter.log"
+        "output/{sample}/{run}/log/filter.log"
     wrapper:
         f"{WRAPPER_PREFIX}/master/bbtools/bbduk"
 
@@ -129,9 +135,9 @@ rule maprRNA:
         input = rules.filter.output.out,
         ref = RRNA_DB
     output:
-        outu = "output/{run}/unmaprRNA.fq",
-        outm = "output/{run}/maprRNA.fq",
-        statsfile = "output/{run}/maprrna.txt"
+        outu = "output/{sample}/{run}/unmaprRNA.fq",
+        outm = "output/{sample}/{run}/maprRNA.fq",
+        statsfile = "output/{sample}/{run}/maprrna.txt"
     params:
         extra = lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
     resources:
@@ -148,9 +154,9 @@ rule maphost:
         input = rules.maprRNA.output.outu,
         ref = HOST_GENOME
     output:
-        outu = "output/{run}/unmaphost.fq",
-        outm = "output/{run}/maphost.fq",
-        statsfile = "output/{run}/maphost.txt"
+        outu = "output/{sample}/{run}/unmaphost.fq",
+        outm = "output/{sample}/{run}/maphost.fq",
+        statsfile = "output/{sample}/{run}/maphost.txt"
     params:
         extra = lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
     resources:
@@ -164,16 +170,16 @@ rule maphost:
 # Map reads to ref genome
 rule refgenome:
     input:
-        input = rules.maphost.output.outu,
+        input = lambda wildcards: expand("output/{{sample}}/{run}/unmaphost.fq", run = samples[wildcards.sample]),
         ref = REF_GENOME
     output:
-        out = "output/{run}/refgenome.sam",
-        statsfile = "output/{run}/refgenome.txt",
-        gchist = "output/{run}/gchist.txt",
-        aqhist = "output/{run}/aqhist.txt",
-        lhist = "output/{run}/lhist.txt",
-        mhist = "output/{run}/mhist.txt",
-        bhist = "output/{run}/bhist.txt",
+        out = "output/{sample}/refgenome.sam",
+        statsfile = "output/{sample}/refgenome.txt",
+        gchist = "output/{sample}/gchist.txt",
+        aqhist = "output/{sample}/aqhist.txt",
+        lhist = "output/{sample}/lhist.txt",
+        mhist = "output/{sample}/mhist.txt",
+        bhist = "output/{sample}/bhist.txt",
     params:
         extra = lambda wildcards, resources: f"maxindel=200 strictmaxindel minid=0.9 maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g RGLB=lib1 RGPL={PLATFORM[wildcards.run]} RGPU={wildcards.run} RGSM={wildcards.run}"
     resources:
@@ -186,9 +192,9 @@ rule refgenome:
 
 rule samtools_sort:
     input:
-        rules.refgenome.output[0]
+        rules.refgenome.output.out
     output:
-        "output/{run}/refgenome_sorted.bam"
+        "output/{sample}/refgenome_sorted.bam"
     params:
         ""
     resources:
@@ -203,7 +209,7 @@ rule genomecov:
     input:
         ibam = rules.samtools_sort.output[0]
     output:
-        "output/{run}/genomecov.bg"
+        "output/{sample}/genomecov.bg"
     params:
         extra = "-bg"
     resources:
@@ -222,7 +228,7 @@ rule lofreq:
         ref = REF_GENOME,
         bam = rules.samtools_sort.output[0]
     output:
-        "output/{run}/lofreq.vcf" 
+        "output/{sample}/lofreq.vcf" 
     params:
         extra="--call-indels --min-cov 50 --max-depth 1000000 --min-bq 30 --min-alt-bq 30 --def-alt-bq 0 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter"
     resources:
@@ -235,14 +241,14 @@ rule lofreq:
 
 rule snpeff:
     input:
-        "output/{run}/lofreq.vcf"
+        "output/{sample}/lofreq.vcf"
     output:
-        calls = "output/{run}/snpeff.vcf",   # annotated calls (vcf, bcf, or vcf.gz)
-        stats = "output/{run}/snpeff.html",  # summary statistics (in HTML), optional
-        csvstats = "output/{run}/snpeff.csv", # summary statistics in CSV, optional
-        genes = "output/{run}/snpeff.genes.txt"
+        calls = "output/{sample}/snpeff.vcf",   # annotated calls (vcf, bcf, or vcf.gz)
+        stats = "output/{sample}/snpeff.html",  # summary statistics (in HTML), optional
+        csvstats = "output/{sample}/snpeff.csv", # summary statistics in CSV, optional
+        genes = "output/{sample}/snpeff.genes.txt"
     log:
-        "output/{run}/log/snpeff_lofreq.log"
+        "output/{sample}/log/snpeff_lofreq.log"
     params:
         data_dir = "data",
         reference = "NC045512", # reference name (from `snpeff databases`)
@@ -260,7 +266,7 @@ rule snpsift:
     input:
         rules.snpeff.output.calls
     output:
-        "output/{run}/snpsift.txt"
+        "output/{sample}/snpsift.txt"
     params:
         extra = "-s ',' -e '.'",
         fieldnames = "CHROM POS REF ALT DP AF SB DP4 EFF[*].IMPACT EFF[*].FUNCLASS EFF[*].EFFECT EFF[*].GENE EFF[*].CODON"
@@ -270,7 +276,7 @@ rule snpsift:
 
 rule merge_tables:
     input:
-        expand("output/{run}/snpsift.txt", run = RUN)
+        expand("output/{sample}/snpsift.txt", sample = samples.keys())
     output:
         "output/snpsift.csv"
     run:
@@ -286,21 +292,21 @@ rule merge_tables:
 # Parse report
 rule report:
     input:
-        statsfile = "output/{run}/refgenome.txt",
-        gchist = "output/{run}/gchist.txt",
-        aqhist = "output/{run}/aqhist.txt",
-        lhist = "output/{run}/lhist.txt",
-        mhist = "output/{run}/mhist.txt",
-        bhist = "output/{run}/bhist.txt",
-        genomecov = "output/{run}/genomecov.bg",
-        vcf = "output/{run}/lofreq.vcf"
+        statsfile = "output/{sample}/refgenome.txt",
+        gchist = "output/{sample}/gchist.txt",
+        aqhist = "output/{sample}/aqhist.txt",
+        lhist = "output/{sample}/lhist.txt",
+        mhist = "output/{sample}/mhist.txt",
+        bhist = "output/{sample}/bhist.txt",
+        genomecov = "output/{sample}/genomecov.bg",
+        vcf = "output/{sample}/lofreq.vcf"
     output:
-        "output/{run}/report.html"
+        "output/{sample}/report.html"
     params:
         author = config["author"],
         run = lambda wildcards: wildcards.run
     log: 
-        "output/{run}/log/report.log"
+        "output/{sample}/log/report.log"
     resources:
         runtime = 120,
         mem_mb = 4000
@@ -320,8 +326,8 @@ rule fastq_screen:
     input:
         rules.filter.output.out
     output:
-        txt = "output/{run}/fastq_screen.txt",
-        png = "output/{run}/fastq_screen.png"
+        txt = "output/{sample}/{run}/fastq_screen.txt",
+        png = "output/{sample}/{run}/fastq_screen.png"
     params:
         fastq_screen_config = fastq_screen_config,
         subset = 100000
@@ -337,8 +343,8 @@ rule fastqc:
     input:
         unpack(get_fastq)
     output:
-        html = "output/{run}/fastqc.html",
-        zip = "output/{run}/fastqc.zip"
+        html = "output/{sample}/{run}/fastqc.html",
+        zip = "output/{sample}/{run}/fastqc.zip"
     resources:
         runtime = 120,
         mem_mb = 4000    
@@ -351,7 +357,7 @@ rule bamstats:
     input:
         rules.samtools_sort.output
     output:
-        "output/{run}/bamstats.txt"
+        "output/{sample}/bamstats.txt"
     resources:
         runtime = 120,
         mem_mb = 8000
@@ -361,10 +367,8 @@ rule bamstats:
 
 rule multiqc:
     input:
-        expand(["output/{run}/fastq_screen.txt",
-        "output/{run}/bamstats.txt",
-        "output/{run}/fastqc.zip",
-        "output/{run}/snpeff.csv"], run = RUN)
+        expand(["output/{sample}/{run}/fastq_screen.txt", "output/{sample}/{run}/fastqc.zip",], zip, sample = SAMPLE, run = RUN),
+        expand(["output/{sample}/snpeff.csv", "output/{sample}/bamstats.txt"], sample = samples.keys())
     output:
         report("output/multiqc.html", caption = "report/multiqc.rst", category = "Quality control")
     params:
