@@ -20,7 +20,7 @@ validate(df, "schemas/samples.schema.yaml")
 samples = df.groupby(level=0).apply(lambda df: df.xs(df.name)["run"].tolist()).to_dict()
 SAMPLE = [sample for sample,run in df.index.tolist()]
 RUN = [run for sample,run in df.index.tolist()]
-PLATFORM = df.platform
+PLATFORM = "ILLUMINA"
 
 
 # Path to reference genomes
@@ -48,9 +48,10 @@ onsuccess:
 
 rule all:
     input: 
+        "output/consensus_masked.fa",
         "output/snpsift.csv", 
         "output/multiqc.html",
-        expand(["output/{sample}/report.html", "output/{sample}/lofreq.vcf"], sample = list(samples.keys())),
+        expand(["output/{sample}/lofreq.vcf"], sample = list(samples.keys())),
         expand(["output/{sample}/{run}/filtered.fq", "output/{sample}/{run}/unmaphost.fq", "output/{sample}/{run}/fastq_screen.txt", "output/{sample}/{run}/fastqc.zip"], zip, sample = SAMPLE, run = RUN)
 
 def get_fastq(wildcards):
@@ -170,18 +171,18 @@ rule maphost:
 # Map reads to ref genome
 rule refgenome:
     input:
-        input = lambda wildcards: expand("output/{{sample}}/{run}/unmaphost.fq", run = samples[wildcards.sample]),
+        input = "output/{sample}/{run}/unmaphost.fq",
         ref = REF_GENOME
     output:
-        out = "output/{sample}/refgenome.sam",
-        statsfile = "output/{sample}/refgenome.txt",
-        gchist = "output/{sample}/gchist.txt",
-        aqhist = "output/{sample}/aqhist.txt",
-        lhist = "output/{sample}/lhist.txt",
-        mhist = "output/{sample}/mhist.txt",
-        bhist = "output/{sample}/bhist.txt",
+        out = "output/{sample}/{run}/refgenome.bam",
+        statsfile = "output/{sample}/{run}/refgenome.txt",
+        gchist = "output/{sample}/{run}/gchist.txt",
+        aqhist = "output/{sample}/{run}/aqhist.txt",
+        lhist = "output/{sample}/{run}/lhist.txt",
+        mhist = "output/{sample}/{run}/mhist.txt",
+        bhist = "output/{sample}/{run}/bhist.txt",
     params:
-        extra = lambda wildcards, resources: f"maxindel=200 strictmaxindel minid=0.9 maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g RGLB=lib1 RGPL={PLATFORM[wildcards.run]} RGPU={wildcards.run} RGSM={wildcards.run}"
+        extra = lambda wildcards, resources: f"maxindel=200 strictmaxindel minid=0.9 maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g RGLB=lib1 RGPL={PLATFORM} RGID={wildcards.run} RGSM={wildcards.sample}"
     resources:
         runtime = 120,
         mem_mb = 16000
@@ -194,7 +195,7 @@ rule samtools_sort:
     input:
         rules.refgenome.output.out
     output:
-        "output/{sample}/refgenome_sorted.bam"
+        "output/{sample}/{run}/refgenome_sorted.bam"
     params:
         ""
     resources:
@@ -205,9 +206,21 @@ rule samtools_sort:
         "0.50.4/bio/samtools/sort"
 
 
+rule samtools_merge:
+    input:
+        lambda wildcards: expand("output/{{sample}}/{run}/refgenome_sorted.bam", run = samples[wildcards.sample])
+    output:
+        "output/{sample}/merged.bam"
+    params:
+        ""
+    threads:  8  
+    wrapper:
+        "0.62.0/bio/samtools/merge"
+
+
 rule genomecov:
     input:
-        ibam = rules.samtools_sort.output[0]
+        ibam = rules.samtools_merge.output[0]
     output:
         "output/{sample}/genomecov.bg"
     params:
@@ -226,7 +239,7 @@ rule genomecov:
 rule lofreq:
     input:
         ref = REF_GENOME,
-        bam = rules.samtools_sort.output[0]
+        bam = rules.samtools_merge.output[0]
     output:
         "output/{sample}/lofreq.vcf" 
     params:
@@ -237,6 +250,65 @@ rule lofreq:
     threads: 1
     wrapper:
         f"{WRAPPER_PREFIX}/master/lofreq/call"
+
+
+rule vcffilter:
+    input:
+        "output/{sample}/lofreq.vcf"
+    output:
+        "output/{sample}/filtered.vcf"
+    params:
+        extra = "-f 'QUAL > 30 & AF > 0.5'"
+    resources:
+        runtime = 120,
+        mem_mb = 4000
+    wrapper:
+        f"{WRAPPER_PREFIX}/master/vcflib/vcffilter"
+
+
+rule genome_consensus:
+    input:
+        ref = REF_GENOME,
+        bam = "output/{sample}/merged.bam",
+        vcf = "output/{sample}/filtered.vcf"
+    output:
+        vcfgz = "output/{sample}/filtered.vcf.gz",
+        consensus = "output/{sample}/consensus_badname.fa",
+        consensus_masked = "output/{sample}/consensus_masked_badname.fa",
+        bed = "output/{sample}/merged.bed"
+    log:
+        "output/{sample}/log/genome_consensus.log"
+    params:
+        mask = 20,
+    wrapper:
+        f"{WRAPPER_PREFIX}/master/genome-consensus"
+
+
+rule rename:
+    input:
+        rules.genome_consensus.output.consensus_masked
+    output:
+        "output/{sample}/consensus_masked.fa"
+    params:
+        sample = lambda wildcards: wildcards.sample,
+        stub = "SARS-CoV-2/human/Estonia/{}/2020"
+    resources:
+        runtime = 120,
+        mem_mb = 2000    
+    wrapper:
+        "file:wrappers/sequences/rename_fasta"
+
+
+rule merge_renamed:
+    input:
+        expand("output/{sample}/consensus_masked.fa", sample = samples.keys())
+    output:
+        "output/consensus_masked.fa"
+    resources:
+        runtime = 120,
+        mem_mb = 2000   
+    shell:
+        "cat {input} > {output}"
 
 
 rule snpeff:
@@ -258,7 +330,6 @@ rule snpeff:
         mem_mb = 4000    
     wrapper:
         "0.50.4/bio/snpeff"
-
 
 
 # Parse snpeff output to tabular format
@@ -288,30 +359,6 @@ rule merge_tables:
         modified = concatenated.reset_index()
         modified.to_csv(output[0], index = False)
 
-
-# Parse report
-rule report:
-    input:
-        statsfile = "output/{sample}/refgenome.txt",
-        gchist = "output/{sample}/gchist.txt",
-        aqhist = "output/{sample}/aqhist.txt",
-        lhist = "output/{sample}/lhist.txt",
-        mhist = "output/{sample}/mhist.txt",
-        bhist = "output/{sample}/bhist.txt",
-        genomecov = "output/{sample}/genomecov.bg",
-        vcf = "output/{sample}/lofreq.vcf"
-    output:
-        "output/{sample}/report.html"
-    params:
-        author = config["author"],
-        run = lambda wildcards: wildcards.run
-    log: 
-        "output/{sample}/log/report.log"
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    wrapper:
-        "file:wrappers/report"
 
 # QC
 fastq_screen_config = {
@@ -355,7 +402,7 @@ rule fastqc:
 # Host mapping stats
 rule bamstats:
     input:
-        rules.samtools_sort.output
+        rules.samtools_merge.output[0]
     output:
         "output/{sample}/bamstats.txt"
     resources:
