@@ -32,7 +32,7 @@ CPNDB = os.environ["CPNDB"]
 
 # Wrappers
 # Wrappers repo: https://github.com/avilab/virome-wrappers
-WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers/"
+WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers"
 
 
 # Report
@@ -70,7 +70,7 @@ rule repair:
     log: 
         "output/{run}/log/repair.log"
     wrapper:
-        WRAPPER_PREFIX + "master/bbtools/repair"
+        f"{WRAPPER_PREFIX}/master/bbtools/repair"
 
 
 rule clumpify:
@@ -88,7 +88,7 @@ rule clumpify:
     log: 
         "output/{run}/log/clumpify.log"
     wrapper:
-        WRAPPER_PREFIX + "master/bbtools/clumpify"
+        f"{WRAPPER_PREFIX}/master/bbtools/clumpify"
 
 
 rule trim:
@@ -104,7 +104,7 @@ rule trim:
     log: 
         "output/{run}/log/trim.log"
     wrapper:
-        WRAPPER_PREFIX + "master/bbtools/bbduk"
+        f"{WRAPPER_PREFIX}/master/bbtools/bbduk"
 
 
 rule filter:
@@ -120,7 +120,7 @@ rule filter:
     log: 
         "output/{run}/log/filter.log"
     wrapper:
-        WRAPPER_PREFIX + "master/bbtools/bbduk"
+        f"{WRAPPER_PREFIX}/master/bbtools/bbduk"
 
 
 # Remove rRNA sequences
@@ -139,7 +139,7 @@ rule maprRNA:
         mem_mb = 16000
     threads: 4
     wrapper:
-        WRAPPER_PREFIX + "master/bbtools/bbwrap"
+        f"{WRAPPER_PREFIX}/master/bbtools/bbwrap"
 
 
 # Remove host sequences
@@ -158,7 +158,7 @@ rule maphost:
         mem_mb = 24000
     threads: 4
     wrapper:
-        WRAPPER_PREFIX + "master/bbtools/bbwrap"
+        f"{WRAPPER_PREFIX}/master/bbtools/bbwrap"
 
 
 # Map reads to ref genome
@@ -181,7 +181,7 @@ rule refgenome:
         mem_mb = 16000
     threads: 4
     wrapper:
-        WRAPPER_PREFIX + "master/bbtools/bbwrap"
+        f"{WRAPPER_PREFIX}/master/bbtools/bbwrap"
 
 
 rule samtools_sort:
@@ -210,7 +210,7 @@ rule genomecov:
         runtime = 120,
         mem_mb = lambda wildcards, attempt: attempt * 8000
     wrapper: 
-        WRAPPER_PREFIX + "master/bedtools/genomecov"
+        f"{WRAPPER_PREFIX}/master/bedtools/genomecov"
 
 
 # Variant calling
@@ -230,7 +230,7 @@ rule lofreq:
         mem_mb = 4000
     threads: 1
     wrapper:
-        WRAPPER_PREFIX + "master/lofreq/call"
+        f"{WRAPPER_PREFIX}/master/lofreq/call"
 
 
 rule snpeff:
@@ -265,7 +265,7 @@ rule snpsift:
         extra = "-s ',' -e '.'",
         fieldnames = "CHROM POS REF ALT DP AF SB DP4 EFF[*].IMPACT EFF[*].FUNCLASS EFF[*].EFFECT EFF[*].GENE EFF[*].CODON"
     wrapper:
-        WRAPPER_PREFIX + "master/snpsift"
+        f"{WRAPPER_PREFIX}/master/snpsift"
 
 
 rule merge_tables:
@@ -330,7 +330,7 @@ rule fastq_screen:
         mem_mb = 8000    
     threads: 4
     wrapper:
-        WRAPPER_PREFIX + "master/fastq_screen"
+        f"{WRAPPER_PREFIX}/master/fastq_screen"
 
 
 rule fastqc:
@@ -375,4 +375,4 @@ rule multiqc:
         runtime = 120,
         mem_mb = 4000    
     wrapper:
-      WRAPPER_PREFIX + "master/multiqc"
+      f"{WRAPPER_PREFIX}/master/multiqc"
