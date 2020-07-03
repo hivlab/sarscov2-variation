@@ -42,7 +42,17 @@ Setup environment variable "SILVA_DB" pointing to this file or edit "RRNA_DB" va
 
 ## Running
 
-Test run:
+Analyse sequences in the test folder:
+```bash
+snakemake --use-conda -d test -F -j 1
+```
+
+Generate test run report:
+```bash
+snakemake --report report.html -d test -j 1
+```
+
+Dry run:
 ```bash
 snakemake --use-conda -n
 ```
