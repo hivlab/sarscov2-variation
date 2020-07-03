@@ -3,7 +3,6 @@
 # sarscov2
 
 Snakemake workflow to align PE sequencing reads to NCBI reference sequence NC_045512.2.
-Returns basic alignment stats and variants relative to refseq in html format.
 
 ## Installing
 
@@ -63,6 +62,3 @@ For all possible snakemake command line options please refer to snakemake tutori
 
 
 This workflow can be run on a contemporary PC/laptop (e.g. i5/16G) with sufficient HD space to accomodate sequening runs.
-
-
-
