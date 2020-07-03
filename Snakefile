@@ -27,9 +27,6 @@ PLATFORM = "ILLUMINA"
 REF_GENOME = config["refgenome"]
 HOST_GENOME = os.environ["REF_GENOME_HUMAN_MASKED"]
 RRNA_DB = os.environ["SILVA"]
-# cpn60 NR database file cpndb_nr_nut_seq.txt was downloaded from http://www.cpndb.ca/downloads.php
-# cpn60 database was indexed using bwa index
-CPNDB = os.environ["CPNDB"]
 
 
 # Wrappers
@@ -54,6 +51,7 @@ rule all:
         expand(["output/{sample}/lofreq.vcf"], sample = list(samples.keys())),
         expand(["output/{sample}/{run}/filtered.fq", "output/{sample}/{run}/unmaphost.fq", "output/{sample}/{run}/fastq_screen.txt", "output/{sample}/{run}/fastqc.zip"], zip, sample = SAMPLE, run = RUN)
 
+
 def get_fastq(wildcards):
     fq_cols = [col for col in df.columns if "fq" in col]
     fqs = df.loc[(wildcards.sample, wildcards.run), fq_cols].dropna()
@@ -62,6 +60,7 @@ def get_fastq(wildcards):
         return {"in1": fqs[0], "in2": fqs[1]}
     else:
         return {"input": fqs[0]}
+
 
 rule repair:
     input:
@@ -364,10 +363,10 @@ rule merge_tables:
 fastq_screen_config = {
     "database": {
         "human": HOST_GENOME,
-        "SILVA_138_SSU_132_LSU": RRNA_DB,
-        "cpn60": CPNDB
+        "SILVA_138_SSU_132_LSU": RRNA_DB
     }
 }
+
 
 rule fastq_screen:
     input:

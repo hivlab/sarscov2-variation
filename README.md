@@ -39,12 +39,6 @@ and moved to systems' databases folder.
 LSU and SSU fasta files were concatenated and indexed using `bwa index` command.
 Setup environment variable "SILVA_DB" pointing to this file or edit "RRNA_DB" variable in Snakefile.
 
-### cpn60 database
-cpn60 database is used to estimate bacterial contamination in sequencing library.
-"cpnDB_nr (UT only, one sequence per species, type strain preferred, current version 20190305)" database in fasta format was downloaded from <http://www.cpndb.ca/downloads.php>.
-cpn60 database was indexed using `bwa index` command.
-Setup environment variable "CPNDB" pointing to this file or edit "CPNDB" variable in Snakefile.
-
 
 ## Running
 
