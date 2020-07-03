@@ -56,3 +56,13 @@ For all possible snakemake command line options please refer to snakemake tutori
 
 
 This workflow can be run on a contemporary PC/laptop (e.g. i5/16G) with sufficient HD space to accomodate sequening runs.
+
+
+## Workflow graph
+
+Workflow graph can be generated:
+```bash
+snakemake --dag -d test | dot -Tsvg > graph/dag.svg
+```
+
+![dag](graph/dag.svg)
