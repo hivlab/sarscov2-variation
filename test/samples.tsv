@@ -1,2 +1,2 @@
-run fq  platform
-SRR11140750 fastq/SRR11140750.fastq    ILLUMINA
+sample  run fq platform
+A  A1  sars-cov2-reads.fq   ILLUMINA

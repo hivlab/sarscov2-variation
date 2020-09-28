@@ -9,11 +9,6 @@ seed: 11
 samples: samples.tsv
 
 
-# Author and email address
-author: Taavi Päll
-email: tapa741@gmail.com
-
-
 # Ref genome
-refgenome: "refseq/NC_045512.fa"
+refgenome: "refseq/data/NC045512/sequences.fa"
 refgenome_name: "NC_045512.2 Wuhan seafood market pneumonia virus isolate Wuhan-Hu-1, complete genome"

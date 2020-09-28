@@ -3,7 +3,6 @@
 # sarscov2
 
 Snakemake workflow to align PE sequencing reads to NCBI reference sequence NC_045512.2.
-Returns basic alignment stats and variants relative to refseq in html format.
 
 ## Installing
 
@@ -40,16 +39,20 @@ and moved to systems' databases folder.
 LSU and SSU fasta files were concatenated and indexed using `bwa index` command.
 Setup environment variable "SILVA_DB" pointing to this file or edit "RRNA_DB" variable in Snakefile.
 
-### cpn60 database
-cpn60 database is used to estimate bacterial contamination in sequencing library.
-"cpnDB_nr (UT only, one sequence per species, type strain preferred, current version 20190305)" database in fasta format was downloaded from <http://www.cpndb.ca/downloads.php>.
-cpn60 database was indexed using `bwa index` command.
-Setup environment variable "CPNDB" pointing to this file or edit "CPNDB" variable in Snakefile.
-
 
 ## Running
 
-Test run:
+Analyse sequences in the test folder:
+```bash
+snakemake --use-conda -d test -F -j 1
+```
+
+Generate test run report:
+```bash
+snakemake --report report.html -d test -j 1
+```
+
+Dry run:
 ```bash
 snakemake --use-conda -n
 ```
@@ -65,4 +68,11 @@ For all possible snakemake command line options please refer to snakemake tutori
 This workflow can be run on a contemporary PC/laptop (e.g. i5/16G) with sufficient HD space to accomodate sequening runs.
 
 
+## Workflow graph
 
+Workflow graph can be generated:
+```bash
+snakemake --dag -d test | dot -Tsvg > graph/dag.svg
+```
+
+![dag](graph/dag.svg)
