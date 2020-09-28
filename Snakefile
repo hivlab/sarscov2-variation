@@ -62,13 +62,29 @@ def get_fastq(wildcards):
         return {"input": fqs[0]}
 
 
-rule clumpify:
+rule reformat:
     input:
         unpack(get_fastq)
     output:
+        out = temp("output/{sample}/{run}/interleaved.fq")
+    params:
+        extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g da" 
+    resources:
+        runtime = 120,
+        mem_mb = 4000
+    log: 
+        "output/{sample}/{run}/log/reformat.log"
+    wrapper:
+        f"{WRAPPER_PREFIX}/master/bbtools/reformat"
+
+
+rule clumpify:
+    input:
+        rules.reformat.output.out
+    output:
         out = temp("output/{sample}/{run}/clumpify.fq")
     params:
-        extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g dedupe optical spany adjacent markduplicates optical qin=33" # suppress assertions
+        extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g dedupe optical spany adjacent markduplicates optical qin=33 da" # suppress assertions
     resources:
         runtime = 120,
         mem_mb = 4000
