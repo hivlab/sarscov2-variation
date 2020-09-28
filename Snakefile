@@ -62,27 +62,9 @@ def get_fastq(wildcards):
         return {"input": fqs[0]}
 
 
-rule repair:
-    input:
-        unpack(get_fastq)
-    output:
-        out = "output/{sample}/{run}/repair_R1.fq",
-        out2 = "output/{sample}/{run}/repair_R2.fq"
-    params:
-        extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g" # suppress assertions
-    resources:
-        runtime = 120,
-        mem_mb = 4000
-    log: 
-        "output/{sample}/{run}/log/repair.log"
-    wrapper:
-        f"{WRAPPER_PREFIX}/master/bbtools/repair"
-
-
 rule clumpify:
     input:
-        in1 = rules.repair.output.out,
-        in2 = rules.repair.output.out2
+        unpack(get_fastq)
     output:
         out = temp("output/{sample}/{run}/clumpify.fq")
     params:
