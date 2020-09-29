@@ -49,7 +49,7 @@ rule all:
         "output/snpsift.csv", 
         "output/multiqc.html",
         expand(["output/{sample}/lofreq.vcf"], sample = list(samples.keys())),
-        expand(["output/{sample}/{run}/filtered.fq", "output/{sample}/{run}/unmaphost.fq", "output/{sample}/{run}/fastq_screen.txt", "output/{sample}/{run}/fastqc.zip"], zip, sample = SAMPLE, run = RUN)
+        expand(["output/{sample}/{run}/filtered.fq", "output/{sample}/{sample}/basecov.txt", "output/{sample}/{run}/unmaphost.fq", "output/{sample}/{run}/fastq_screen.txt", "output/{sample}/{run}/fastqc.zip"], zip, sample = SAMPLE, run = RUN)
 
 
 def get_fastq(wildcards):
@@ -188,19 +188,21 @@ rule refgenome:
         f"{WRAPPER_PREFIX}/master/bbtools/bbwrap"
 
 
-rule samtools_sort:
+rule sort_and_index:
     input:
         rules.refgenome.output.out
     output:
-        "output/{sample}/{run}/refgenome_sorted.bam"
+        sorted = "output/{sample}/{run}/refgenome_sorted.bam",
+        index = "output/{sample}/{run}/refgenome_sorted.bam.bai" 
     params:
-        ""
+        lambda wildcards, resources: f"-m {resources.mem_mb}M"
+    threads:
+        4
     resources:
-        runtime = 120,
-        mem_mb = 4000
-    threads: 4 # Samtools takes additional threads through its option -@
+        mem_mb = 16000,
+        runtime = lambda wildcards, attempt: attempt * 240
     wrapper:
-        "0.50.4/bio/samtools/sort"
+        f"{WRAPPER_PREFIX}/master/samtools/sort_and_index"
 
 
 rule samtools_merge:
@@ -215,18 +217,20 @@ rule samtools_merge:
         "0.62.0/bio/samtools/merge"
 
 
-rule genomecov:
+rule pileup:
     input:
-        ibam = rules.samtools_merge.output[0]
+        input = rules.samtools_merge.output[0],
+        ref = REF_GENOME
     output:
-        "output/{sample}/genomecov.bg"
+        out = "output/{sample}/{sample}/covstats.txt",
+        basecov = "output/{sample}/{sample}/basecov.txt"
     params:
-        extra = "-bg"
+        extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb}m concise"
     resources:
-        runtime = 120,
+        runtime = lambda wildcards, attempt: attempt * 120,
         mem_mb = lambda wildcards, attempt: attempt * 8000
     wrapper: 
-        f"{WRAPPER_PREFIX}/master/bedtools/genomecov"
+        f"{WRAPPER_PREFIX}/master/bbtools/pileup"
 
 
 # Variant calling
