@@ -80,7 +80,7 @@ rule reformat:
 
 rule clumpify:
     input:
-        rules.reformat.output.out
+        input = rules.reformat.output.out
     output:
         out = temp("output/{sample}/{run}/clumpify.fq")
     params:
