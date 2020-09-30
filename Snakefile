@@ -48,8 +48,8 @@ rule all:
         "output/consensus_masked.fa",
         "output/snpsift.csv", 
         "output/multiqc.html",
-        expand(["output/{sample}/lofreq.vcf"], sample = list(samples.keys())),
-        expand(["output/{sample}/{run}/filtered.fq", "output/{sample}/{sample}/basecov.txt", "output/{sample}/{run}/unmaphost.fq", "output/{sample}/{run}/fastq_screen.txt", "output/{sample}/{run}/fastqc.zip"], zip, sample = SAMPLE, run = RUN)
+        expand(["output/{sample}/lofreq.vcf", "output/{sample}/basecov.txt"], sample = list(samples.keys())),
+        expand(["output/{sample}/{run}/filtered.fq", "output/{sample}/{run}/unmaphost.fq", "output/{sample}/{run}/fastq_screen.txt", "output/{sample}/{run}/fastqc.zip"], zip, sample = SAMPLE, run = RUN)
 
 
 def get_fastq(wildcards):
@@ -222,8 +222,8 @@ rule pileup:
         input = rules.samtools_merge.output[0],
         ref = REF_GENOME
     output:
-        out = "output/{sample}/{sample}/covstats.txt",
-        basecov = "output/{sample}/{sample}/basecov.txt"
+        out = "output/{sample}/covstats.txt",
+        basecov = "output/{sample}/basecov.txt"
     params:
         extra = lambda wildcards, resources: f"-Xmx{resources.mem_mb}m concise"
     resources:
