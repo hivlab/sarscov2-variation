@@ -7,6 +7,7 @@ __license__ = "MIT"
 import os
 import pandas as pd
 from snakemake.utils import validate, makedirs
+from datetime import datetime
 
 
 # Load configuration file with sample and path info
@@ -21,6 +22,12 @@ samples = df.groupby(level=0).apply(lambda df: df.xs(df.name)["run"].tolist()).t
 SAMPLE = [sample for sample,run in df.index.tolist()]
 RUN = [run for sample,run in df.index.tolist()]
 PLATFORM = "ILLUMINA"
+
+
+# Consensus sequence metadata, let's keep it simple for now. 
+# Will be moved to sample.tsv to allow more flexibility
+YEAR = datetime.today().year
+COUNTRY = "Estonia"
 
 
 # Path to reference genomes
@@ -291,7 +298,7 @@ rule rename:
         "output/{sample}/consensus_masked.fa"
     params:
         sample = lambda wildcards: wildcards.sample,
-        stub = "SARS-CoV-2/human/Estonia/{}/2020"
+        stub = f"SARS-CoV-2/human/{COUNTRY}/{{}}/{YEAR}"
     resources:
         runtime = 120,
         mem_mb = 2000    
