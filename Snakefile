@@ -388,7 +388,7 @@ rule fastq_screen:
 
 rule fastqc:
     input:
-        unpack(get_fastq)
+        rules.reformat.output.out
     output:
         html = "output/{sample}/{run}/fastqc.html",
         zip = "output/{sample}/{run}/fastqc.zip"
