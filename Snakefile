@@ -81,7 +81,7 @@ rule reformat:
     log: 
         "output/{sample}/{run}/log/reformat.log"
     wrapper:
-        f"{WRAPPER_PREFIX}/master/bbtools/reformat"
+        f"{WRAPPER_PREFIX}/v0.2/bbtools/reformat"
 
 
 rule clumpify:
@@ -98,7 +98,7 @@ rule clumpify:
     log: 
         "output/{sample}/{run}/log/clumpify.log"
     wrapper:
-        f"{WRAPPER_PREFIX}/master/bbtools/clumpify"
+        f"{WRAPPER_PREFIX}/v0.2/bbtools/clumpify"
 
 
 rule trim:
@@ -114,7 +114,7 @@ rule trim:
     log: 
         "output/{sample}/{run}/log/trim.log"
     wrapper:
-        f"{WRAPPER_PREFIX}/master/bbtools/bbduk"
+        f"{WRAPPER_PREFIX}/v0.2/bbtools/bbduk"
 
 
 rule filter:
@@ -130,7 +130,7 @@ rule filter:
     log: 
         "output/{sample}/{run}/log/filter.log"
     wrapper:
-        f"{WRAPPER_PREFIX}/master/bbtools/bbduk"
+        f"{WRAPPER_PREFIX}/v0.2/bbtools/bbduk"
 
 
 # Remove rRNA sequences
@@ -149,7 +149,7 @@ rule maprRNA:
         mem_mb = 16000
     threads: 4
     wrapper:
-        f"{WRAPPER_PREFIX}/master/bbtools/bbwrap"
+        f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
 
 
 # Remove host sequences
@@ -168,7 +168,7 @@ rule maphost:
         mem_mb = 24000
     threads: 4
     wrapper:
-        f"{WRAPPER_PREFIX}/master/bbtools/bbwrap"
+        f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
 
 
 # Map reads to ref genome
@@ -191,7 +191,7 @@ rule refgenome:
         mem_mb = 16000
     threads: 4
     wrapper:
-        f"{WRAPPER_PREFIX}/master/bbtools/bbwrap"
+        f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
 
 
 rule sort_and_index:
@@ -208,7 +208,7 @@ rule sort_and_index:
         mem_mb = 16000,
         runtime = lambda wildcards, attempt: attempt * 240
     wrapper:
-        f"{WRAPPER_PREFIX}/master/samtools/sort_and_index"
+        f"{WRAPPER_PREFIX}/v0.2/samtools/sort_and_index"
 
 
 rule samtools_merge:
@@ -236,7 +236,7 @@ rule pileup:
         runtime = lambda wildcards, attempt: attempt * 120,
         mem_mb = lambda wildcards, attempt: attempt * 8000
     wrapper: 
-        f"{WRAPPER_PREFIX}/master/bbtools/pileup"
+        f"{WRAPPER_PREFIX}/v0.2/bbtools/pileup"
 
 
 # Variant calling
@@ -256,7 +256,7 @@ rule lofreq:
         mem_mb = 4000
     threads: 1
     wrapper:
-        f"{WRAPPER_PREFIX}/master/lofreq/call"
+        f"{WRAPPER_PREFIX}/v0.2/lofreq/call"
 
 
 rule vcffilter:
@@ -270,7 +270,7 @@ rule vcffilter:
         runtime = 120,
         mem_mb = 4000
     wrapper:
-        f"{WRAPPER_PREFIX}/master/vcflib/vcffilter"
+        f"{WRAPPER_PREFIX}/v0.2/vcflib/vcffilter"
 
 
 rule genome_consensus:
@@ -288,7 +288,7 @@ rule genome_consensus:
     params:
         mask = 20,
     wrapper:
-        f"{WRAPPER_PREFIX}/master/genome-consensus"
+        f"{WRAPPER_PREFIX}/v0.2/genome-consensus"
 
 
 rule rename:
@@ -303,7 +303,7 @@ rule rename:
         runtime = 120,
         mem_mb = 2000    
     wrapper:
-        f"{WRAPPER_PREFIX}/master/sequences/rename_fasta"
+        f"{WRAPPER_PREFIX}/v0.2/sequences/rename_fasta"
 
 
 rule merge_renamed:
@@ -349,7 +349,7 @@ rule snpsift:
         extra = "-s ',' -e '.'",
         fieldnames = "CHROM POS REF ALT DP AF SB DP4 EFF[*].IMPACT EFF[*].FUNCLASS EFF[*].EFFECT EFF[*].GENE EFF[*].CODON"
     wrapper:
-        f"{WRAPPER_PREFIX}/master/snpsift"
+        f"{WRAPPER_PREFIX}/v0.2/snpsift"
 
 
 rule merge_tables:
@@ -390,7 +390,7 @@ rule fastq_screen:
         mem_mb = 8000    
     threads: 4
     wrapper:
-        f"{WRAPPER_PREFIX}/master/fastq_screen"
+        f"{WRAPPER_PREFIX}/v0.2/fastq_screen"
 
 
 rule fastqc:
@@ -433,4 +433,4 @@ rule multiqc:
         runtime = 120,
         mem_mb = 4000    
     wrapper:
-      f"{WRAPPER_PREFIX}/master/multiqc"
+      f"{WRAPPER_PREFIX}/v0.2/multiqc"
