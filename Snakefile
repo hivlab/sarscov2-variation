@@ -48,8 +48,7 @@ rule all:
         "output/consensus_masked.fa",
         "output/snpsift.csv", 
         "output/multiqc.html",
-        expand(["output/{sample}/lofreq.vcf", "output/{sample}/basecov.txt"], sample = list(samples.keys())),
-        expand(["output/{sample}/{run}/fastq_screen.txt", "output/{sample}/{run}/fastqc.zip"], zip, sample = SAMPLE, run = RUN)
+        expand(["output/{sample}/basecov.txt"], sample = list(samples.keys()))
 
 
 def get_fastq(wildcards):
