@@ -49,7 +49,7 @@ rule all:
         "output/snpsift.csv", 
         "output/multiqc.html",
         expand(["output/{sample}/lofreq.vcf", "output/{sample}/basecov.txt"], sample = list(samples.keys())),
-        expand(["output/{sample}/{run}/filtered.fq", "output/{sample}/{run}/unmaphost.fq", "output/{sample}/{run}/fastq_screen.txt", "output/{sample}/{run}/fastqc.zip"], zip, sample = SAMPLE, run = RUN)
+        expand(["output/{sample}/{run}/fastq_screen.txt", "output/{sample}/{run}/fastqc.zip"], zip, sample = SAMPLE, run = RUN)
 
 
 def get_fastq(wildcards):
@@ -168,7 +168,7 @@ rule maphost:
 # Map reads to ref genome
 rule refgenome:
     input:
-        input = "output/{sample}/{run}/unmaphost.fq",
+        input = rules.maphost.output.outu,
         ref = REF_GENOME
     output:
         out = "output/{sample}/{run}/refgenome.bam",
