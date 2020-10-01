@@ -27,7 +27,8 @@ PLATFORM = "ILLUMINA"
 # Consensus sequence metadata, let's keep it simple for now. 
 # Will be moved to sample.tsv to allow more flexibility
 YEAR = datetime.today().year
-COUNTRY = "Estonia"
+COUNTRY = config["country"]
+HEXDIG = config["hexdig"] # should we scramble original sample names
 
 
 # Path to reference genomes
@@ -52,7 +53,7 @@ onsuccess:
 
 rule all:
     input: 
-        "output/consensus_masked.fa",
+        "output/consensus_masked_hd.fa" if HEXDIG else "output/consensus_masked.fa",
         "output/snpsift.csv", 
         "output/multiqc.html",
         expand(["output/{sample}/basecov.txt"], sample = list(samples.keys()))
@@ -295,7 +296,7 @@ rule rename:
     input:
         rules.genome_consensus.output.consensus_masked
     output:
-        "output/{sample}/consensus_masked.fa"
+        "output/{sample}/consensus_masked_hd.fa" if HEXDIG else "output/{sample}/consensus_masked.fa"
     params:
         sample = lambda wildcards: wildcards.sample,
         stub = f"SARS-CoV-2/human/{COUNTRY}/{{}}/{YEAR}"
@@ -308,9 +309,9 @@ rule rename:
 
 rule merge_renamed:
     input:
-        expand("output/{sample}/consensus_masked.fa", sample = samples.keys())
+        expand("output/{sample}/consensus_masked_hd.fa" if HEXDIG else "output/{sample}/consensus_masked.fa", sample = samples.keys())
     output:
-        "output/consensus_masked.fa"
+        "output/consensus_masked_hd.fa" if HEXDIG else "output/consensus_masked.fa"
     resources:
         runtime = 120,
         mem_mb = 2000   
