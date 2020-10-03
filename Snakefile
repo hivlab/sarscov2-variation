@@ -299,7 +299,8 @@ rule rename:
         "output/{sample}/consensus_masked_hd.fa" if HEXDIG else "output/{sample}/consensus_masked.fa"
     params:
         sample = lambda wildcards: wildcards.sample,
-        stub = f"SARS-CoV-2/human/{COUNTRY}/{{}}/{YEAR}"
+        stub = f"SARS-CoV-2/human/{COUNTRY}/{{}}/{YEAR}",
+        hexdigest = HEXDIG
     resources:
         runtime = 120,
         mem_mb = 2000    
