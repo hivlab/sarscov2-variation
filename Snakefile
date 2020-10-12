@@ -115,7 +115,7 @@ rule trim:
         out=temp("output/{sample}/{run}/trimmed.fq"),
     params:
         extra=(
-            lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g maq=10 qtrim=r trimq=10 ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=100 ref=adapters,primers/primers.fa ftm=5 ordered qin=33"
+            lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g maq=10 qtrim=r trimq=10 ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=100 ref=adapters ftm=5 ordered qin=33"
         ),
     resources:
         runtime=120,
