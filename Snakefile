@@ -406,7 +406,7 @@ rule fastq_screen:
         rules.filter.output.out,
     output:
         txt="output/{sample}/{run}/fastq_screen.txt",
-        png="output/{sample}/{run}/fastq_screen.png",
+        html="output/{sample}/{run}/fastq_screen.html",
     params:
         fastq_screen_config=fastq_screen_config,
         subset=100000,
@@ -415,7 +415,7 @@ rule fastq_screen:
         mem_mb=8000,
     threads: 4
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/fastq_screen"
+        f"{WRAPPER_PREFIX}/v0.2.1/fastq_screen"
 
 
 rule fastqc:
