@@ -8,12 +8,6 @@ properties:
   samples:
     type: string
     description: path to samples.tsv file
-  author:
-    type: string
-    description: author of the report
-  email:
-    type: string
-    description: author email address
   refgenome:
     type: string
     description: path to sars-cov-2 indexed genome
