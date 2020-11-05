@@ -4,6 +4,15 @@
 
 Snakemake workflow to align SARS-CoV-2 paired-end sequencing reads to NCBI reference sequence NC_045512.2.
 
+The workflow preprocesses and maps reads to NC_045512.2 Wuhan seafood market pneumonia virus isolate Wuhan-Hu-1 using Bbmap suite, calls variations with Lofreq and generates consensus fasta sequences with low coverage sites masked.
+
+Main outputs:
+
+- output/consensus_masked.fa -- multi FASTA file with generated consensus sequences.
+- output/snpsift.csv -- csv file with filtered variant positions that were used to generate consensus sequences.
+- output/multiqc.html -- aggregated QC report in html format. 
+
+
 ## Installing conda and snakemake
 
 - Download and install miniconda3: <https://docs.conda.io/en/latest/miniconda.html>.
@@ -21,6 +30,23 @@ cd covidseq
 ```
 
 - Create/Edit `config.yaml` and `samples.tsv` files. Please see test directory for examples. 
+
+Example of `samples.tsv` file with paired reads in two separate files:
+
+sample | run | fq1 | fq2 | platform
+-------|-----|-----|-----|--------
+A  | A1 | /path/to/A1_R1.fq | /path/to/A1_R2.fq | ILLUMINA
+A  | A2 | /path/to/A2_R1.fq | /path/to/A2_R2.fq | ILLUMINA
+B  | B1 | /path/to/B1_R1.fq | /path/to/B1_R2.fq | ILLUMINA
+
+
+In case of **interleaved** fastq files, following `samples.tsv` can be used:
+
+sample | run | fq | platform
+-------|-----|-----|-----|--------
+A  | A1 | /path/to/A1.fq | ILLUMINA
+A  | A2 | /path/to/A2.fq | ILLUMINA
+B  | B1 | /path/to/B1.fq | ILLUMINA
 
 
 ## Download databases
