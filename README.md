@@ -43,7 +43,7 @@ B  | B1 | /path/to/B1_R1.fq | /path/to/B1_R2.fq | ILLUMINA
 In case of **interleaved** fastq files, following `samples.tsv` can be used:
 
 sample | run | fq | platform
--------|-----|-----|-----|--------
+-------|-----|----|---------
 A  | A1 | /path/to/A1.fq | ILLUMINA
 A  | A2 | /path/to/A2.fq | ILLUMINA
 B  | B1 | /path/to/B1.fq | ILLUMINA
