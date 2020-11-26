@@ -1,14 +1,14 @@
 # Set seed for replicability
 seed: 11
 
-
 # Path or URL to sample sheet (TSV format, required columns: sample, fq or fq1, fq2, frac)
 # sample - unique sample name
 # run - sequencing run
 # fq1 and fq2 - paths to paired-end fastq file
 samples: samples.tsv
-
+country: Estonia
+hexdig: False
 
 # Ref genome
-refgenome: "../refseq/NC_045512.fa"
+refgenome: "refseq/data/NC045512/sequences.fa"
 refgenome_name: "NC_045512.2 Wuhan seafood market pneumonia virus isolate Wuhan-Hu-1, complete genome"

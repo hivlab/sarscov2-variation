@@ -35,6 +35,12 @@ COUNTRY = config["country"]
 HEXDIG = config["hexdig"]  # should we scramble original sample names
 
 
+# Assert environment variables
+envvars:
+    "REF_GENOME_HUMAN_MASKED",
+    "SILVA",
+
+
 # Path to reference genomes
 REF_GENOME = config["refgenome"]
 HOST_GENOME = os.environ["REF_GENOME_HUMAN_MASKED"]
@@ -48,11 +54,6 @@ WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers"
 
 # Report
 report: "report/workflow.rst"
-
-
-onsuccess:
-    email = config["email"]
-    shell("mail -s 'Forkflow finished successfully' {email} < {log}")
 
 
 rule all:
@@ -74,6 +75,9 @@ def get_fastq(wildcards):
 
 
 rule reformat:
+    """
+    Interleave paired reads.
+    """
     input:
         unpack(get_fastq),
     output:
@@ -90,6 +94,10 @@ rule reformat:
 
 
 rule clumpify:
+    """
+    Group overlapping reads into clumps, 
+    to accelerate mapping.
+    """
     input:
         input=rules.reformat.output.out,
     output:
@@ -109,6 +117,9 @@ rule clumpify:
 
 
 rule trim:
+    """
+    Quality trimming of the reads.
+    """
     input:
         input=rules.clumpify.output.out,
     output:
@@ -127,6 +138,9 @@ rule trim:
 
 
 rule filter:
+    """
+    Remove all reads that have a 31-mer match to PhiX and other artifacts.
+    """
     input:
         input=rules.trim.output.out,
     output:
@@ -144,8 +158,10 @@ rule filter:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/bbduk"
 
 
-# Remove rRNA sequences
 rule maprRNA:
+    """
+    Remove rRNA sequences.
+    """
     input:
         input=rules.filter.output.out,
         ref=RRNA_DB,
@@ -165,8 +181,10 @@ rule maprRNA:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
 
 
-# Remove host sequences
 rule maphost:
+    """
+    Remove host sequences.
+    """
     input:
         input=rules.maprRNA.output.outu,
         ref=HOST_GENOME,
@@ -186,8 +204,10 @@ rule maphost:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
 
 
-# Map reads to ref genome
 rule refgenome:
+    """
+    Map reads to ref genome.
+    """
     input:
         input=rules.maphost.output.outu,
         ref=REF_GENOME,
@@ -212,6 +232,9 @@ rule refgenome:
 
 
 rule sort_and_index:
+    """
+    Sort and index bam.
+    """
     input:
         rules.refgenome.output.out,
     output:
@@ -228,6 +251,9 @@ rule sort_and_index:
 
 
 rule samtools_merge:
+    """
+    Merge bam files.
+    """
     input:
         lambda wildcards: expand(
             "output/{{sample}}/{run}/refgenome_sorted.bam",
@@ -243,6 +269,9 @@ rule samtools_merge:
 
 
 rule pileup:
+    """
+    Calculate coverage.
+    """
     input:
         input=rules.samtools_merge.output[0],
         ref=REF_GENOME,
@@ -258,11 +287,10 @@ rule pileup:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/pileup"
 
 
-# Variant calling
-# "Removes any sites with estimated probability of not being polymorphic
-# less than phred 20 (aka 0.01), or probability of polymorphism > 0.99"
-# from FreeBayes user manual.
 rule lofreq:
+    """
+    Variant calling.
+    """
     input:
         ref=REF_GENOME,
         bam=rules.samtools_merge.output[0],
@@ -279,6 +307,9 @@ rule lofreq:
 
 
 rule vcffilter:
+    """
+    Filter variants based on quality score and allele frequency.
+    """
     input:
         "output/{sample}/lofreq.vcf",
     output:
@@ -293,6 +324,10 @@ rule vcffilter:
 
 
 rule genome_consensus:
+    """
+    Generate consensus genome, 
+    mask positions with low coverage.
+    """
     input:
         ref=REF_GENOME,
         bam="output/{sample}/merged.bam",
@@ -311,6 +346,9 @@ rule genome_consensus:
 
 
 rule rename:
+    """
+    Rename fasta sequences.
+    """
     input:
         rules.genome_consensus.output.consensus_masked,
     output:
@@ -327,6 +365,9 @@ rule rename:
 
 
 rule merge_renamed:
+    """
+    Merge fasta files.
+    """
     input:
         expand(
             "output/{sample}/consensus_masked_hd.fa"
@@ -344,6 +385,9 @@ rule merge_renamed:
 
 
 rule snpeff:
+    """
+    Functional annotation of variants.
+    """
     input:
         "output/{sample}/lofreq.vcf",
     output:
@@ -366,8 +410,10 @@ rule snpeff:
         "0.50.4/bio/snpeff"
 
 
-# Parse snpeff output to tabular format
 rule snpsift:
+    """
+    Parse snpeff output to tabular format.
+    """
     input:
         rules.snpeff.output.calls,
     output:
@@ -380,6 +426,9 @@ rule snpsift:
 
 
 rule merge_tables:
+    """
+    Merge variant tables.
+    """
     input:
         expand("output/{sample}/snpsift.txt", sample=samples.keys()),
     output:
@@ -402,6 +451,9 @@ fastq_screen_config = {
 
 
 rule fastq_screen:
+    """
+    Estimate reads mapping to host and bacteria (rRNA).
+    """
     input:
         rules.filter.output.out,
     output:
@@ -419,6 +471,9 @@ rule fastq_screen:
 
 
 rule fastqc:
+    """
+    Calculate input reads quality stats.
+    """
     input:
         rules.reformat.output.out,
     output:
@@ -431,8 +486,10 @@ rule fastqc:
         "0.27.1/bio/fastqc"
 
 
-# Host mapping stats
 rule bamstats:
+    """
+    Host genome mapping stats.
+    """
     input:
         rules.samtools_merge.output[0],
     output:
@@ -445,6 +502,9 @@ rule bamstats:
 
 
 rule multiqc:
+    """
+    Generate comprehensive report.
+    """
     input:
         expand(
             [
