@@ -268,12 +268,29 @@ rule samtools_merge:
         "0.62.0/bio/samtools/merge"
 
 
+rule indelqual:
+    """
+    Inserts indel qualities into BAM.
+    """
+    input:
+        ref=REF_GENOME,
+        bam=rules.samtools_merge.output[0],
+    output:
+        "output/{sample}/indelqual.bam",,
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    threads: 8
+    wrapper:
+        f"{WRAPPER_PREFIX}/master/lofreq/indelqual"
+
+
 rule pileup:
     """
     Calculate coverage.
     """
     input:
-        input=rules.samtools_merge.output[0],
+        input=rules.indelqual.output[0],
         ref=REF_GENOME,
     output:
         out="output/{sample}/covstats.txt",
@@ -293,7 +310,7 @@ rule lofreq:
     """
     input:
         ref=REF_GENOME,
-        bam=rules.samtools_merge.output[0],
+        bam=rules.indelqual.output[0],
     output:
         "output/{sample}/lofreq.vcf",
     params:
@@ -330,7 +347,7 @@ rule genome_consensus:
     """
     input:
         ref=REF_GENOME,
-        bam="output/{sample}/merged.bam",
+        bam="output/{sample}/indelqual.bam",
         vcf="output/{sample}/filtered.vcf",
     output:
         vcfgz="output/{sample}/filtered.vcf.gz",
