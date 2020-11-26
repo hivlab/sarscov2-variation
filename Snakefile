@@ -276,7 +276,7 @@ rule indelqual:
         ref=REF_GENOME,
         bam=rules.samtools_merge.output[0],
     output:
-        "output/{sample}/indelqual.bam",,
+        "output/{sample}/indelqual.bam",
     resources:
         runtime=120,
         mem_mb=4000,
