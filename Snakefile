@@ -42,14 +42,15 @@ envvars:
 
 
 # Path to reference genomes
-REF_GENOME = config["refgenome"]
-HOST_GENOME = os.environ["REF_GENOME_HUMAN_MASKED"]
-RRNA_DB = os.environ["SILVA"]
+REF_GENOME=config["refgenome"]
+REF_GENOME_DICT=config["refgenome_dict"]
+HOST_GENOME=os.environ["REF_GENOME_HUMAN_MASKED"]
+RRNA_DB=os.environ["SILVA"]
 
 
 # Wrappers
 # Wrappers repo: https://github.com/avilab/virome-wrappers
-WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers"
+WRAPPER_PREFIX="https://raw.githubusercontent.com/avilab/virome-wrappers"
 
 
 # Report
@@ -61,12 +62,12 @@ rule all:
         "output/consensus_masked_hd.fa" if HEXDIG else "output/consensus_masked.fa",
         "output/snpsift.csv",
         "output/multiqc.html",
-        expand(["output/{sample}/basecov.txt"], sample=list(samples.keys())),
+        expand(["output/{sample}/basecov.txt", "output/{sample}/lofreq1.vcf.idx"], sample=list(samples.keys())),
 
 
 def get_fastq(wildcards):
-    fq_cols = [col for col in df.columns if "fq" in col]
-    fqs = df.loc[(wildcards.sample, wildcards.run), fq_cols].dropna()
+    fq_cols=[col for col in df.columns if "fq" in col]
+    fqs=df.loc[(wildcards.sample, wildcards.run), fq_cols].dropna()
     assert len(fq_cols) in [1, 2], "Enter one or two FASTQ file paths"
     if len(fq_cols) == 2:
         return {"in1": fqs[0], "in2": fqs[1]}
@@ -268,21 +269,79 @@ rule samtools_merge:
         "0.62.0/bio/samtools/merge"
 
 
-rule indelqual:
+rule lofreq1:
+    """
+    Variant calling.
+    """
+    input:
+        ref=REF_GENOME,
+        bam=rules.samtools_merge.output[0],
+    output:
+        "output/{sample}/lofreq1.vcf",
+    params:
+        extra="--call-indels --min-bq 30 --min-alt-bq 30 --def-alt-bq 0 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    threads: 1
+    wrapper:
+        f"{WRAPPER_PREFIX}/v0.2/lofreq/call"
+
+
+rule indexfeaturefile:
+    """
+    Index vcf vile.
+    """
+    input:
+        "output/{sample}/lofreq1.vcf",
+    output:
+        "output/{sample}/lofreq1.vcf.idx",
+    params:
+        extra="",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    threads: 1
+    wrapper:
+        f"{WRAPPER_PREFIX}/master/gatk/indexfeaturefile"
+
+
+rule gatk_baserecalibrator:
+    input:
+        ref=REF_GENOME,
+        bam=rules.samtools_merge.output[0],
+        dict=REF_GENOME_DICT,
+        known="output/{sample}/lofreq1.vcf",
+    output:
+        recal_table="output/{sample}/recal_table.grp",
+    log:
+        "output/{sample}/log/baserecalibrator.log",
+    params:
+        java_opts=lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g", 
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    wrapper:
+        "0.67.0/bio/gatk/baserecalibrator"
+
+
+rule applybqsr:
     """
     Inserts indel qualities into BAM.
     """
     input:
         ref=REF_GENOME,
         bam=rules.samtools_merge.output[0],
+        recal_table="output/{sample}/recal_table.grp",
     output:
-        "output/{sample}/indelqual.bam",
+        bam="output/{sample}/recalibrated.bam",
+    params:
+        java_opts=lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g", 
     resources:
         runtime=120,
         mem_mb=4000,
-    threads: 8
     wrapper:
-        f"{WRAPPER_PREFIX}/master/lofreq/indelqual"
+        "0.67.0/bio/gatk/applybqsr"
 
 
 rule pileup:
@@ -290,7 +349,7 @@ rule pileup:
     Calculate coverage.
     """
     input:
-        input=rules.indelqual.output[0],
+        input=rules.applybqsr.output.bam,
         ref=REF_GENOME,
     output:
         out="output/{sample}/covstats.txt",
@@ -304,17 +363,17 @@ rule pileup:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/pileup"
 
 
-rule lofreq:
+rule lofreq2:
     """
     Variant calling.
     """
     input:
         ref=REF_GENOME,
-        bam=rules.indelqual.output[0],
+        bam=rules.applybqsr.output.bam,
     output:
         "output/{sample}/lofreq.vcf",
     params:
-        extra="--call-indels --min-cov 50 --max-depth 1000000 --min-bq 30 --min-alt-bq 30 --def-alt-bq 0 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter",
+        extra="--call-indels --min-bq 30 --min-alt-bq 30 --def-alt-bq 0 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -325,14 +384,14 @@ rule lofreq:
 
 rule vcffilter:
     """
-    Filter variants based on quality score and allele frequency.
+    Filter variants based on allele frequency.
     """
     input:
         "output/{sample}/lofreq.vcf",
     output:
         "output/{sample}/filtered.vcf",
     params:
-        extra="-f 'QUAL > 30 & AF > 0.5'",
+        extra="-f 'AF > 0.5'",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -347,7 +406,7 @@ rule genome_consensus:
     """
     input:
         ref=REF_GENOME,
-        bam="output/{sample}/indelqual.bam",
+        bam="output/{sample}/recalibrated.bam",
         vcf="output/{sample}/filtered.vcf",
     output:
         vcfgz="output/{sample}/filtered.vcf.gz",
@@ -357,7 +416,7 @@ rule genome_consensus:
     log:
         "output/{sample}/log/genome_consensus.log",
     params:
-        mask=20,
+        mask=1,
     wrapper:
         f"{WRAPPER_PREFIX}/v0.2/genome-consensus"
 

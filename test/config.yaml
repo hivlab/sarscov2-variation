@@ -11,4 +11,5 @@ hexdig: False
 
 # Ref genome
 refgenome: "refseq/data/NC045512/sequences.fa"
+refgenome_dict: "refseq/data/NC045512/sequences.dict"
 refgenome_name: "NC_045512.2 Wuhan seafood market pneumonia virus isolate Wuhan-Hu-1, complete genome"
