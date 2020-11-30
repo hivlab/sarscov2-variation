@@ -35,12 +35,6 @@ COUNTRY = config["country"]
 HEXDIG = config["hexdig"]  # should we scramble original sample names
 
 
-# Assert environment variables
-envvars:
-    "REF_GENOME_HUMAN_MASKED",
-    "SILVA",
-
-
 # Path to reference genomes
 REF_GENOME=config["refgenome"]
 REF_GENOME_DICT=config["refgenome_dict"]
