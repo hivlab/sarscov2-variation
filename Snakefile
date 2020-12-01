@@ -294,80 +294,23 @@ rule samtools_merge:
         "0.62.0/bio/samtools/merge"
 
 
-rule lofreq1:
+rule indelqual:
     """
-    Variant calling.
+    Indel recalibration.
     """
     input:
         ref=REF_GENOME,
         bam=rules.samtools_merge.output[0],
     output:
-        "output/{sample}/lofreq1.vcf",
+        "output/{sample}/indelqual.bam",
     params:
-        extra="--call-indels --min-cov 50 --max-depth 1000000  --min-bq 30 --min-alt-bq 30 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter",
+        extra="--verbose",
     resources:
         runtime=120,
         mem_mb=4000,
     threads: 1
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/lofreq/call"
-
-
-rule indexfeaturefile:
-    """
-    Index vcf vile.
-    """
-    input:
-        "output/{sample}/lofreq1.vcf",
-    output:
-        "output/{sample}/lofreq1.vcf.idx",
-    params:
-        extra="",
-    resources:
-        runtime=120,
-        mem_mb=4000,
-    threads: 1
-    wrapper:
-        f"{WRAPPER_PREFIX}/master/gatk/indexfeaturefile"
-
-
-rule gatk_baserecalibrator:
-    input:
-        ref=REF_GENOME,
-        bam=rules.samtools_merge.output[0],
-        dict=REF_GENOME_DICT,
-        known="output/{sample}/lofreq1.vcf",
-        feature_index=rules.indexfeaturefile.output[0]
-    output:
-        recal_table="output/{sample}/recal_table.grp",
-    log:
-        "output/{sample}/log/baserecalibrator.log",
-    params:
-        java_opts=lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g", 
-    resources:
-        runtime=120,
-        mem_mb=4000,
-    wrapper:
-        "0.67.0/bio/gatk/baserecalibrator"
-
-
-rule applybqsr:
-    """
-    Inserts indel qualities into BAM.
-    """
-    input:
-        ref=REF_GENOME,
-        bam=rules.samtools_merge.output[0],
-        recal_table="output/{sample}/recal_table.grp",
-    output:
-        bam="output/{sample}/recalibrated.bam",
-    params:
-        java_opts=lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g", 
-    resources:
-        runtime=120,
-        mem_mb=4000,
-    wrapper:
-        "0.67.0/bio/gatk/applybqsr"
+        f"{WRAPPER_PREFIX}/v0.3/lofreq/indelqual"
 
 
 rule pileup:
@@ -375,7 +318,7 @@ rule pileup:
     Calculate coverage.
     """
     input:
-        input=rules.applybqsr.output.bam,
+        input=rules.indelqual.output[0],
         ref=REF_GENOME,
     output:
         out="output/{sample}/covstats.txt",
@@ -389,13 +332,13 @@ rule pileup:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/pileup"
 
 
-rule lofreq2:
+rule lofreq:
     """
     Variant calling.
     """
     input:
         ref=REF_GENOME,
-        bam=rules.applybqsr.output.bam,
+        bam=rules.indelqual.output[0],
     output:
         "output/{sample}/lofreq.vcf",
     params:
@@ -432,7 +375,7 @@ rule genome_consensus:
     """
     input:
         ref=REF_GENOME,
-        bam="output/{sample}/recalibrated.bam",
+        bam=rules.indelqual.output[0],
         vcf="output/{sample}/filtered.vcf",
     output:
         vcfgz="output/{sample}/filtered.vcf.gz",
