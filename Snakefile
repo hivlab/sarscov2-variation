@@ -56,7 +56,7 @@ rule all:
         "output/consensus_masked_hd.fa" if HEXDIG else "output/consensus_masked.fa",
         "output/snpsift.csv",
         "output/multiqc.html",
-        expand(["output/{sample}/basecov.txt", "output/{sample}/lofreq1.vcf.idx"], sample=list(samples.keys())),
+        expand(["output/{sample}/basecov.txt"], sample=list(samples.keys())),
 
 
 def get_fastq(wildcards):
@@ -166,7 +166,7 @@ rule maprRNA:
         statsfile="output/{sample}/{run}/maprrna.txt",
     params:
         extra=(
-            lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
+            lambda wildcards, resources: f"minratio=0.9 maxindel=3 bwr=0.16 bw=12 fast minhits=2 qtrim=r trimq=10 untrim idtag printunmappedcount kfilter=25 maxsites=1 k=14 maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
         ),
     resources:
         runtime=120,
@@ -189,7 +189,7 @@ rule maphost:
         statsfile="output/{sample}/{run}/maphost.txt",
     params:
         extra=(
-            lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
+            lambda wildcards, resources: f"minratio=0.9 maxindel=3 bwr=0.16 bw=12 fast minhits=2 qtrim=r trimq=10 untrim idtag printunmappedcount kfilter=25 maxsites=1 k=14 maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
         ),
     resources:
         runtime=lambda wildcards, attempt: attempt * 200,
@@ -216,7 +216,7 @@ rule refgenome:
         bhist="output/{sample}/{run}/bhist.txt",
     params:
         extra=(
-            lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g RGLB=lib1 RGPL={PLATFORM} RGID={wildcards.run} RGSM={wildcards.sample}"
+            lambda wildcards, resources: f"slow k=12 maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g RGLB=lib1 RGPL={PLATFORM} RGID={wildcards.run} RGSM={wildcards.sample}"
         ),
     resources:
         runtime=120,
@@ -226,15 +226,29 @@ rule refgenome:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
 
 
+rule samtools_view:
+    input:
+        rules.refgenome.output.out,
+    output:
+        "output/{sample}/{run}/filtered.bam",
+    params:
+        "-h   -b  -q 20 -f 0x3" # optional params string
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    wrapper:
+        "0.68.0/bio/samtools/view"
+
+
 rule sort_and_index:
     """
     Sort and index bam.
     """
     input:
-        rules.refgenome.output.out,
+        rules.samtools_view.output[0],
     output:
-        sorted="output/{sample}/{run}/refgenome_sorted.bam",
-        index="output/{sample}/{run}/refgenome_sorted.bam.bai",
+        sorted="output/{sample}/{run}/sorted.bam",
+        index="output/{sample}/{run}/sorted.bam.bai",
     params:
         lambda wildcards, resources: f"-m {resources.mem_mb}M",
     threads: 4
@@ -245,13 +259,49 @@ rule sort_and_index:
         f"{WRAPPER_PREFIX}/v0.2/samtools/sort_and_index"
 
 
+rule mark_duplicates:
+    input:
+        rules.sort_and_index.output.sorted,
+    output:
+        bam="output/{sample}/{run}/dedup.bam",
+        metrics="output/{sample}/{run}/dedup.txt",
+    log:
+        "output/{sample}/{run}/log/dedup.log",
+    params:
+        "USE_JDK_DEFLATER='true' USE_JDK_INFLATER='true' REMOVE_DUPLICATES='true' ASSUME_SORTED='true'  DUPLICATE_SCORING_STRATEGY='SUM_OF_BASE_QUALITIES'  OPTICAL_DUPLICATE_PIXEL_DISTANCE='100'   VALIDATION_STRINGENCY='LENIENT' QUIET='true' VERBOSITY='ERROR'"
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    wrapper:
+        "0.68.0/bio/picard/markduplicates"
+
+
+rule realign:
+    """
+    Realign reads.
+    """
+    input:
+        ref=REF_GENOME,
+        bam=rules.mark_duplicates.output.bam,
+    output:
+        "output/{sample}/{run}/realign.bam",
+    params:
+        extra="--verbose --defqual 2",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    threads: 1
+    wrapper:
+        f"{WRAPPER_PREFIX}/master/lofreq/viterbi"
+
+
 rule samtools_merge:
     """
     Merge bam files.
     """
     input:
         lambda wildcards: expand(
-            "output/{{sample}}/{run}/refgenome_sorted.bam",
+            "output/{{sample}}/{run}/realign.bam",
             run=samples[wildcards.sample],
         ),
     output:
@@ -306,6 +356,7 @@ rule gatk_baserecalibrator:
         bam=rules.samtools_merge.output[0],
         dict=REF_GENOME_DICT,
         known="output/{sample}/lofreq1.vcf",
+        feature_index=rules.indexfeaturefile.output[0]
     output:
         recal_table="output/{sample}/recal_table.grp",
     log:
