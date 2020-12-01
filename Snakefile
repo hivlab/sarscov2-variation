@@ -276,32 +276,13 @@ rule mark_duplicates:
         "0.68.0/bio/picard/markduplicates"
 
 
-rule realign:
-    """
-    Realign reads.
-    """
-    input:
-        ref=REF_GENOME,
-        bam=rules.mark_duplicates.output.bam,
-    output:
-        "output/{sample}/{run}/realign.bam",
-    params:
-        extra="--verbose --defqual 2",
-    resources:
-        runtime=120,
-        mem_mb=4000,
-    threads: 1
-    wrapper:
-        f"{WRAPPER_PREFIX}/master/lofreq/viterbi"
-
-
 rule samtools_merge:
     """
     Merge bam files.
     """
     input:
         lambda wildcards: expand(
-            "output/{{sample}}/{run}/realign.bam",
+            "output/{{sample}}/{run}/dedup.bam",
             run=samples[wildcards.sample],
         ),
     output:
