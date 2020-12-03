@@ -375,7 +375,7 @@ rule genome_consensus:
     """
     input:
         ref=REF_GENOME,
-        bam=rules.indelqual.output[0],
+        reads=rules.maphost.output.outu,
         vcf="output/{sample}/filtered.vcf",
     output:
         vcfgz="output/{sample}/filtered.vcf.gz",
@@ -386,8 +386,9 @@ rule genome_consensus:
         "output/{sample}/log/genome_consensus.log",
     params:
         mask=1,
+        extra="slow k=12 maxlen=600", # parameters passed to bbmap
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/genome-consensus"
+        f"{WRAPPER_PREFIX}/master/genome-consensus"
 
 
 rule rename:
