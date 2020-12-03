@@ -375,7 +375,10 @@ rule genome_consensus:
     """
     input:
         ref=REF_GENOME,
-        reads=rules.maphost.output.outu,
+        reads=lambda wildcards: expand(
+            "output/{{sample}}/{run}/unmaphost.fq",
+            run=samples[wildcards.sample],
+        ),
         vcf="output/{sample}/filtered.vcf",
     output:
         vcfgz="output/{sample}/filtered.vcf.gz",
