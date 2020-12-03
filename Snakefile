@@ -383,6 +383,7 @@ rule genome_consensus:
     output:
         vcfgz="output/{sample}/filtered.vcf.gz",
         consensus="output/{sample}/consensus_badname.fa",
+        sam="output/{sample}/consensus.sam",
         consensus_masked="output/{sample}/consensus_masked_badname.fa",
         bed="output/{sample}/merged.bed",
     log:
