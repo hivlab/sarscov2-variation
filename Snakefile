@@ -36,15 +36,15 @@ HEXDIG = config["hexdig"]  # should we scramble original sample names
 
 
 # Path to reference genomes
-REF_GENOME=config["refgenome"]
-REF_GENOME_DICT=config["refgenome_dict"]
-HOST_GENOME=os.environ["REF_GENOME_HUMAN_MASKED"]
-RRNA_DB=os.environ["SILVA"]
+REF_GENOME = config["refgenome"]
+REF_GENOME_DICT = config["refgenome_dict"]
+HOST_GENOME = os.getenv("REF_GENOME_HUMAN_MASKED")
+RRNA_DB = os.getenv("SILVA")
 
 
 # Wrappers
 # Wrappers repo: https://github.com/avilab/virome-wrappers
-WRAPPER_PREFIX="https://raw.githubusercontent.com/avilab/virome-wrappers"
+WRAPPER_PREFIX = "https://raw.githubusercontent.com/avilab/virome-wrappers"
 
 
 # Report
@@ -60,8 +60,8 @@ rule all:
 
 
 def get_fastq(wildcards):
-    fq_cols=[col for col in df.columns if "fq" in col]
-    fqs=df.loc[(wildcards.sample, wildcards.run), fq_cols].dropna()
+    fq_cols = [col for col in df.columns if "fq" in col]
+    fqs = df.loc[(wildcards.sample, wildcards.run), fq_cols].dropna()
     assert len(fq_cols) in [1, 2], "Enter one or two FASTQ file paths"
     if len(fq_cols) == 2:
         return {"in1": fqs[0], "in2": fqs[1]}
@@ -186,7 +186,7 @@ rule samtools_view:
     output:
         "output/{sample}/{run}/filtered.bam",
     params:
-        "-h   -b  -q 20 -f 0x3" # optional params string
+        "-h   -b  -q 20 -f 0x3", # optional params string
     resources:
         runtime=120,
         mem_mb=4000,
@@ -222,7 +222,7 @@ rule mark_duplicates:
     log:
         "output/{sample}/{run}/log/dedup.log",
     params:
-        "USE_JDK_DEFLATER='true' USE_JDK_INFLATER='true' REMOVE_DUPLICATES='true' ASSUME_SORTED='true'  DUPLICATE_SCORING_STRATEGY='SUM_OF_BASE_QUALITIES'  OPTICAL_DUPLICATE_PIXEL_DISTANCE='100'   VALIDATION_STRINGENCY='LENIENT' QUIET='true' VERBOSITY='ERROR'"
+        "USE_JDK_DEFLATER='true' USE_JDK_INFLATER='true' REMOVE_DUPLICATES='true' ASSUME_SORTED='true'  DUPLICATE_SCORING_STRATEGY='SUM_OF_BASE_QUALITIES'  OPTICAL_DUPLICATE_PIXEL_DISTANCE='100'   VALIDATION_STRINGENCY='LENIENT' QUIET='true' VERBOSITY='ERROR'",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -236,8 +236,7 @@ rule samtools_merge:
     """
     input:
         lambda wildcards: expand(
-            "output/{{sample}}/{run}/dedup.bam",
-            run=samples[wildcards.sample],
+            "output/{{sample}}/{run}/dedup.bam", run=samples[wildcards.sample],
         ),
     output:
         "output/{sample}/merged.bam",
@@ -291,7 +290,7 @@ rule gatk_baserecalibrator:
         bam=rules.samtools_merge.output[0],
         dict=REF_GENOME_DICT,
         known="output/{sample}/lofreq1.vcf",
-        feature_index=rules.indexfeaturefile.output[0]
+        feature_index=rules.indexfeaturefile.output[0],
     output:
         recal_table="output/{sample}/recal_table.grp",
     log:
@@ -402,8 +401,7 @@ rule genome_consensus:
     input:
         ref=REF_GENOME,
         reads=lambda wildcards: expand(
-            "output/{{sample}}/{run}/filtered.fq",
-            run=samples[wildcards.sample],
+            "output/{{sample}}/{run}/filtered.fq", run=samples[wildcards.sample],
         ),
         vcf="output/{sample}/filtered.vcf",
     output:
@@ -416,7 +414,9 @@ rule genome_consensus:
         "output/{sample}/log/genome_consensus.log",
     params:
         mask=1,
-        extra=lambda wildcards, resources: f"-Xmx{resources.mem_mb}m slow k=12 maxlen=600", # parameters passed to bbmap
+        extra=(
+            lambda wildcards, resources: f"-Xmx{resources.mem_mb}m slow k=12 maxlen=600"
+        ), # parameters passed to bbmap
     resources:
         runtime=120,
         mem_mb=4000,
@@ -469,7 +469,7 @@ rule snpeff:
     """
     input:
         calls="output/{sample}/lofreq.vcf",
-        db="refseq/NC045512"
+        db="refseq/NC045512",
     output:
         calls="output/{sample}/snpeff.vcf", # annotated calls (vcf, bcf, or vcf.gz)
         stats="output/{sample}/snpeff.html", # summary statistics (in HTML), optional
@@ -478,7 +478,7 @@ rule snpeff:
     log:
         "output/{sample}/log/snpeff.log",
     params:
-        extra="-configOption NC045512.genome=NC045512", 
+        extra="-configOption NC045512.genome=NC045512",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -520,30 +520,39 @@ rule merge_tables:
         modified.to_csv(output[0], index=False)
 
 
-# QC
-fastq_screen_config = {
-    "database": {"human": HOST_GENOME, "SILVA_138_SSU_132_LSU": RRNA_DB}
+# Run fastq_screen only when databases are present
+fastq_screen_db = {
+    k: v
+    for k, v in dict({"human": HOST_GENOME, "SILVA_138_SSU_132_LSU": RRNA_DB}).items()
+    if os.path.exists(v if v else "")
 }
 
+if fastq_screen_db:
 
-rule fastq_screen:
-    """
-    Estimate reads mapping to host and bacteria (rRNA).
-    """
-    input:
-        rules.filter.output.out,
-    output:
-        txt="output/{sample}/{run}/fastq_screen.txt",
-        html="output/{sample}/{run}/fastq_screen.html",
-    params:
-        fastq_screen_config=fastq_screen_config,
-        subset=100000,
-    resources:
-        runtime=120,
-        mem_mb=8000,
-    threads: 4
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.2.1/fastq_screen"
+    fastq_screen_config = {
+        "database": fastq_screen_db
+    }
+
+    rule fastq_screen:
+        """
+        Estimate reads mapping to host and bacteria (rRNA).
+        """
+        input:
+            rules.filter.output.out,
+        output:
+            txt="output/{sample}/{run}/fastq_screen.txt",
+            html="output/{sample}/{run}/fastq_screen.html",
+        params:
+            fastq_screen_config=fastq_screen_config,
+            subset=100000,
+        resources:
+            runtime=120,
+            mem_mb=8000,
+        threads: 4
+        wrapper:
+            f"{WRAPPER_PREFIX}/v0.2.1/fastq_screen"
+else:
+    print("Skipping fastq_screen as no databases were found.")
 
 
 rule fastqc:
@@ -586,7 +595,9 @@ rule multiqc:
             [
                 "output/{sample}/{run}/fastq_screen.txt",
                 "output/{sample}/{run}/fastqc.zip",
-            ],
+            ]
+            if fastq_screen_db
+            else "output/{sample}/{run}/fastqc.zip",
             zip,
             sample=SAMPLE,
             run=RUN,
