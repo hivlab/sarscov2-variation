@@ -174,7 +174,7 @@ rule refgenome:
         ),
     resources:
         runtime=120,
-        mem_mb=16000,
+        mem_mb=4000,
     threads: 4
     wrapper:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
@@ -207,7 +207,7 @@ rule sort_and_index:
         lambda wildcards, resources: f"-m {resources.mem_mb}M",
     threads: 4
     resources:
-        mem_mb=16000,
+        mem_mb=4000,
         runtime=lambda wildcards, attempt: attempt * 240,
     wrapper:
         f"{WRAPPER_PREFIX}/v0.2/samtools/sort_and_index"
@@ -574,7 +574,7 @@ rule bamstats:
         "output/{sample}/bamstats.txt",
     resources:
         runtime=120,
-        mem_mb=8000,
+        mem_mb=4000,
     wrapper:
         "0.42.0/bio/samtools/stats"
 
