@@ -17,6 +17,6 @@ jobs:
         with:
           update-conda: true
           python-version: ${{ matrix.python-version }}
-          conda-channels: anaconda, conda-forge, biocnda
+          conda-channels: anaconda, conda-forge, bioconda
       - run: conda --version
       - run: which python
