@@ -296,13 +296,11 @@ rule gatk_baserecalibrator:
         recal_table="output/{sample}/recal_table.grp",
     log:
         "output/{sample}/log/baserecalibrator.log",
-    params:
-        java_opts=lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g", 
     resources:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        "0.67.0/bio/gatk/baserecalibrator"
+        "0.68.0/bio/gatk/baserecalibrator"
 
 
 rule applybqsr:
@@ -315,13 +313,11 @@ rule applybqsr:
         recal_table="output/{sample}/recal_table.grp",
     output:
         bam="output/{sample}/recalibrated.bam",
-    params:
-        java_opts=lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g", 
     resources:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        "0.67.0/bio/gatk/applybqsr"
+        "0.68.0/bio/gatk/applybqsr"
 
 
 rule indelqual:
@@ -472,7 +468,8 @@ rule snpeff:
     Functional annotation of variants.
     """
     input:
-        "output/{sample}/lofreq.vcf",
+        calls="output/{sample}/lofreq.vcf",
+        db="refseq/data/NC045512"
     output:
         calls="output/{sample}/snpeff.vcf", # annotated calls (vcf, bcf, or vcf.gz)
         stats="output/{sample}/snpeff.html", # summary statistics (in HTML), optional
@@ -481,16 +478,12 @@ rule snpeff:
     log:
         "output/{sample}/log/snpeff_lofreq.log",
     params:
-        data_dir="data",
-        reference="NC045512", # reference name (from `snpeff databases`)
-        extra=(
-            lambda wildcards, resources: f"-c refseq/snpEffect.config -Xmx{resources.mem_mb / 1000:.0f}g"
-        ), # optional parameters (e.g., max memory 4g)
+        extra="-c refseq/snpEffect.config", 
     resources:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        "0.50.4/bio/snpeff"
+        "0.68.0/bio/snpeff/annotate"
 
 
 rule snpsift:
