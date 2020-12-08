@@ -50,18 +50,15 @@ B  | B1 | /path/to/B1.fq | ILLUMINA
 
 
 ## Download databases
-(Optional) Human and rRNA sequence databases for FastQ Screen. In absence of databases fastq screen rule will be skipped.
-### Human reference genome
+(Optional) Human and rRNA sequence databases for FastQ Screen. In absence of databases fastq screen rule will be skipped.    
 
-Human genomic sequence database is used to estimate and remove human sequences from analysis.
+**Human genomic sequence** database is used to estimate and remove human sequences from analysis.
 Run `scripts/download_masked_human_hg19.sh` to download masked human reference genome to filter out reads mapping to the human genome.
 Move `hg19_main_mask_ribo_animal_allplant_allfungus.fa.gz` file in your system where you store databases. 
 `hg19_main_mask_ribo_animal_allplant_allfungus.fa.gz` file was indexed using `bwa index` command.
-Setup environment variable "REF_GENOME_HUMAN_MASKED" pointing to this file or edit "HOST_GENOME" variable in Snakefile.
+Setup environment variable "REF_GENOME_HUMAN_MASKED" pointing to this file or edit "HOST_GENOME" variable in Snakefile.    
 
-### Silva small and large subunit ribosomal databases
-
-Silva rRNA database is used to estimate and remove rRNA contamination.
+**Silva rRNA database** is used to estimate and remove rRNA contamination.
 Database files can be downloaded from <https://www.arb-silva.de/fileadmin/silva_databases/release_138/Exports/SILVA_138_SSURef_NR99_tax_silva.fasta.gz> and <https://www.arb-silva.de/fileadmin/silva_databases/release_132/Exports/SILVA_132_LSURef_tax_silva.fasta.gz>
 and moved to systems' databases folder.
 LSU and SSU fasta files were concatenated and indexed using `bwa index` command.
