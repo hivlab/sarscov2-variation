@@ -1,0 +1,35 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest]
+        python-version: [3.6, 3.7, 3.8]
+      fail-fast: false
+    name: Python ${{ matrix.python-version }} ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          update-conda: true
+          python-version: ${{ matrix.python-version }}
+          conda-channels: conda-forge, bioconda
+      - run: |
+          conda --version
+          which python
+      - name: Setup Snakemake environment
+        run: |
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          conda install -c conda-forge -q mamba
+          mamba create -c conda-forge -c bioconda -n snakemake snakemake
+      - name: Run workflow
+        run: |
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          eval "$(conda shell.bash hook)"
+          conda activate snakemake
+          snakemake --use-conda --resources mem_mb=4000 -d test -j

@@ -35,16 +35,11 @@ COUNTRY = config["country"]
 HEXDIG = config["hexdig"]  # should we scramble original sample names
 
 
-# Assert environment variables
-envvars:
-    "REF_GENOME_HUMAN_MASKED",
-    "SILVA",
-
-
 # Path to reference genomes
 REF_GENOME = config["refgenome"]
-HOST_GENOME = os.environ["REF_GENOME_HUMAN_MASKED"]
-RRNA_DB = os.environ["SILVA"]
+REF_GENOME_DICT = config["refgenome_dict"]
+HOST_GENOME = os.getenv("REF_GENOME_HUMAN_MASKED")
+RRNA_DB = os.getenv("SILVA")
 
 
 # Wrappers
@@ -158,58 +153,12 @@ rule filter:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/bbduk"
 
 
-rule maprRNA:
-    """
-    Remove rRNA sequences.
-    """
-    input:
-        input=rules.filter.output.out,
-        ref=RRNA_DB,
-    output:
-        outu="output/{sample}/{run}/unmaprRNA.fq",
-        outm="output/{sample}/{run}/maprRNA.fq",
-        statsfile="output/{sample}/{run}/maprrna.txt",
-    params:
-        extra=(
-            lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
-        ),
-    resources:
-        runtime=120,
-        mem_mb=16000,
-    threads: 4
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
-
-
-rule maphost:
-    """
-    Remove host sequences.
-    """
-    input:
-        input=rules.maprRNA.output.outu,
-        ref=HOST_GENOME,
-    output:
-        outu="output/{sample}/{run}/unmaphost.fq",
-        outm="output/{sample}/{run}/maphost.fq",
-        statsfile="output/{sample}/{run}/maphost.txt",
-    params:
-        extra=(
-            lambda wildcards, resources: f"maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
-        ),
-    resources:
-        runtime=lambda wildcards, attempt: attempt * 200,
-        mem_mb=24000,
-    threads: 4
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
-
-
 rule refgenome:
     """
     Map reads to ref genome.
     """
     input:
-        input=rules.maphost.output.outu,
+        input=rules.filter.output.out,
         ref=REF_GENOME,
     output:
         out="output/{sample}/{run}/refgenome.bam",
@@ -221,7 +170,7 @@ rule refgenome:
         bhist="output/{sample}/{run}/bhist.txt",
     params:
         extra=(
-            lambda wildcards, resources: f"maxindel=200 strictmaxindel minid=0.9 maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g RGLB=lib1 RGPL={PLATFORM} RGID={wildcards.run} RGSM={wildcards.sample}"
+            lambda wildcards, resources: f"slow k=12 maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g RGLB=lib1 RGPL={PLATFORM} RGID={wildcards.run} RGSM={wildcards.sample}"
         ),
     resources:
         runtime=120,
@@ -231,23 +180,54 @@ rule refgenome:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
 
 
+rule samtools_view:
+    input:
+        rules.refgenome.output.out,
+    output:
+        "output/{sample}/{run}/filtered.bam",
+    params:
+        "-h   -b  -q 20 -f 0x3", # optional params string
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    wrapper:
+        "0.68.0/bio/samtools/view"
+
+
 rule sort_and_index:
     """
     Sort and index bam.
     """
     input:
-        rules.refgenome.output.out,
+        rules.samtools_view.output[0],
     output:
-        sorted="output/{sample}/{run}/refgenome_sorted.bam",
-        index="output/{sample}/{run}/refgenome_sorted.bam.bai",
+        sorted="output/{sample}/{run}/sorted.bam",
+        index="output/{sample}/{run}/sorted.bam.bai",
     params:
         lambda wildcards, resources: f"-m {resources.mem_mb}M",
     threads: 4
     resources:
-        mem_mb=16000,
+        mem_mb=4000,
         runtime=lambda wildcards, attempt: attempt * 240,
     wrapper:
         f"{WRAPPER_PREFIX}/v0.2/samtools/sort_and_index"
+
+
+rule mark_duplicates:
+    input:
+        rules.sort_and_index.output.sorted,
+    output:
+        bam="output/{sample}/{run}/dedup.bam",
+        metrics="output/{sample}/{run}/dedup.txt",
+    log:
+        "output/{sample}/{run}/log/dedup.log",
+    params:
+        "USE_JDK_DEFLATER='true' USE_JDK_INFLATER='true' REMOVE_DUPLICATES='true' ASSUME_SORTED='true'  DUPLICATE_SCORING_STRATEGY='SUM_OF_BASE_QUALITIES'  OPTICAL_DUPLICATE_PIXEL_DISTANCE='100'   VALIDATION_STRINGENCY='LENIENT' QUIET='true' VERBOSITY='ERROR'",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    wrapper:
+        "0.68.0/bio/picard/markduplicates"
 
 
 rule samtools_merge:
@@ -256,8 +236,7 @@ rule samtools_merge:
     """
     input:
         lambda wildcards: expand(
-            "output/{{sample}}/{run}/refgenome_sorted.bam",
-            run=samples[wildcards.sample],
+            "output/{{sample}}/{run}/dedup.bam", run=samples[wildcards.sample],
         ),
     output:
         "output/{sample}/merged.bam",
@@ -268,12 +247,103 @@ rule samtools_merge:
         "0.62.0/bio/samtools/merge"
 
 
+rule lofreq1:
+    """
+    Variant calling.
+    """
+    input:
+        ref=REF_GENOME,
+        bam=rules.samtools_merge.output[0],
+    output:
+        "output/{sample}/lofreq1.vcf",
+    params:
+        extra="--call-indels --min-cov 50 --max-depth 1000000  --min-bq 30 --min-alt-bq 30 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    threads: 1
+    wrapper:
+        f"{WRAPPER_PREFIX}/v0.2/lofreq/call"
+
+
+rule indexfeaturefile:
+    """
+    Index vcf vile.
+    """
+    input:
+        "output/{sample}/lofreq1.vcf",
+    output:
+        "output/{sample}/lofreq1.vcf.idx",
+    params:
+        extra="",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    threads: 1
+    wrapper:
+        f"{WRAPPER_PREFIX}/master/gatk/indexfeaturefile"
+
+
+rule gatk_baserecalibrator:
+    input:
+        ref=REF_GENOME,
+        bam=rules.samtools_merge.output[0],
+        dict=REF_GENOME_DICT,
+        known="output/{sample}/lofreq1.vcf",
+        feature_index=rules.indexfeaturefile.output[0],
+    output:
+        recal_table="output/{sample}/recal_table.grp",
+    log:
+        "output/{sample}/log/baserecalibrator.log",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    wrapper:
+        "0.68.0/bio/gatk/baserecalibrator"
+
+
+rule applybqsr:
+    """
+    Inserts indel qualities into BAM.
+    """
+    input:
+        ref=REF_GENOME,
+        bam=rules.samtools_merge.output[0],
+        recal_table="output/{sample}/recal_table.grp",
+    output:
+        bam="output/{sample}/recalibrated.bam",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    wrapper:
+        "0.68.0/bio/gatk/applybqsr"
+
+
+rule indelqual:
+    """
+    Indel recalibration.
+    """
+    input:
+        ref=REF_GENOME,
+        bam=rules.applybqsr.output[0],
+    output:
+        "output/{sample}/indelqual.bam",
+    params:
+        extra="--verbose",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    threads: 1
+    wrapper:
+        f"{WRAPPER_PREFIX}/v0.3/lofreq/indelqual"
+
+
 rule pileup:
     """
     Calculate coverage.
     """
     input:
-        input=rules.samtools_merge.output[0],
+        input=rules.indelqual.output[0],
         ref=REF_GENOME,
     output:
         out="output/{sample}/covstats.txt",
@@ -287,17 +357,17 @@ rule pileup:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/pileup"
 
 
-rule lofreq:
+rule lofreq2:
     """
     Variant calling.
     """
     input:
         ref=REF_GENOME,
-        bam=rules.samtools_merge.output[0],
+        bam=rules.indelqual.output[0],
     output:
         "output/{sample}/lofreq.vcf",
     params:
-        extra="--call-indels --min-cov 50 --max-depth 1000000 --min-bq 30 --min-alt-bq 30 --def-alt-bq 0 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter",
+        extra="--call-indels --min-cov 50 --max-depth 1000000  --min-bq 30 --min-alt-bq 30 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -308,14 +378,14 @@ rule lofreq:
 
 rule vcffilter:
     """
-    Filter variants based on quality score and allele frequency.
+    Filter variants based on allele frequency.
     """
     input:
         "output/{sample}/lofreq.vcf",
     output:
         "output/{sample}/filtered.vcf",
     params:
-        extra="-f 'QUAL > 30 & AF > 0.5'",
+        extra="-f 'AF > 0.5'",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -330,19 +400,28 @@ rule genome_consensus:
     """
     input:
         ref=REF_GENOME,
-        bam="output/{sample}/merged.bam",
+        reads=lambda wildcards: expand(
+            "output/{{sample}}/{run}/filtered.fq", run=samples[wildcards.sample],
+        ),
         vcf="output/{sample}/filtered.vcf",
     output:
         vcfgz="output/{sample}/filtered.vcf.gz",
         consensus="output/{sample}/consensus_badname.fa",
+        sam="output/{sample}/consensus.sam",
         consensus_masked="output/{sample}/consensus_masked_badname.fa",
         bed="output/{sample}/merged.bed",
     log:
         "output/{sample}/log/genome_consensus.log",
     params:
-        mask=20,
+        mask=1,
+        extra=(
+            lambda wildcards, resources: f"-Xmx{resources.mem_mb}m slow k=12 maxlen=600"
+        ), # parameters passed to bbmap
+    resources:
+        runtime=120,
+        mem_mb=4000,
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/genome-consensus"
+        f"{WRAPPER_PREFIX}/master/genome-consensus"
 
 
 rule rename:
@@ -389,25 +468,22 @@ rule snpeff:
     Functional annotation of variants.
     """
     input:
-        "output/{sample}/lofreq.vcf",
+        calls="output/{sample}/lofreq.vcf",
+        db="refseq/NC045512",
     output:
         calls="output/{sample}/snpeff.vcf", # annotated calls (vcf, bcf, or vcf.gz)
         stats="output/{sample}/snpeff.html", # summary statistics (in HTML), optional
         csvstats="output/{sample}/snpeff.csv", # summary statistics in CSV, optional
         genes="output/{sample}/snpeff.genes.txt",
     log:
-        "output/{sample}/log/snpeff_lofreq.log",
+        "output/{sample}/log/snpeff.log",
     params:
-        data_dir="data",
-        reference="NC045512", # reference name (from `snpeff databases`)
-        extra=(
-            lambda wildcards, resources: f"-c refseq/snpEffect.config -Xmx{resources.mem_mb / 1000:.0f}g"
-        ), # optional parameters (e.g., max memory 4g)
+        extra="-configOption NC045512.genome=NC045512",
     resources:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        "0.50.4/bio/snpeff"
+        "0.68.0/bio/snpeff/annotate"
 
 
 rule snpsift:
@@ -444,9 +520,11 @@ rule merge_tables:
         modified.to_csv(output[0], index=False)
 
 
-# QC
-fastq_screen_config = {
-    "database": {"human": HOST_GENOME, "SILVA_138_SSU_132_LSU": RRNA_DB}
+# Run fastq_screen only when databases are present
+fastq_screen_db = {
+    k: v
+    for k, v in dict({"human": HOST_GENOME, "SILVA_138_SSU_132_LSU": RRNA_DB}).items()
+    if os.path.exists(v if v else "")
 }
 
 
@@ -460,7 +538,7 @@ rule fastq_screen:
         txt="output/{sample}/{run}/fastq_screen.txt",
         html="output/{sample}/{run}/fastq_screen.html",
     params:
-        fastq_screen_config=fastq_screen_config,
+        fastq_screen_config={"database": fastq_screen_db},
         subset=100000,
     resources:
         runtime=120,
@@ -496,7 +574,7 @@ rule bamstats:
         "output/{sample}/bamstats.txt",
     resources:
         runtime=120,
-        mem_mb=8000,
+        mem_mb=4000,
     wrapper:
         "0.42.0/bio/samtools/stats"
 
@@ -510,7 +588,9 @@ rule multiqc:
             [
                 "output/{sample}/{run}/fastq_screen.txt",
                 "output/{sample}/{run}/fastqc.zip",
-            ],
+            ]
+            if fastq_screen_db
+            else "output/{sample}/{run}/fastqc.zip",
             zip,
             sample=SAMPLE,
             run=RUN,

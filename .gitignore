@@ -11,3 +11,4 @@ test/output
 *.fq.gz
 *.fastq.gz
 output/
+!test/sars-cov2-reads.fq
