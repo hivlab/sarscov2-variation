@@ -9,14 +9,19 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         python-version: [3.6, 3.7, 3.8]
-    name: Python ${{ matrix.python-version }} example
+    name: Python ${{ matrix.python-version }} ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
-      - name: Setup conda
-        uses: s-weigand/setup-conda@v1
+      - name: Setup miniconda
+        uses: conda-incubator/setup-miniconda@v2
         with:
           update-conda: true
           python-version: ${{ matrix.python-version }}
-          conda-channels: anaconda, conda-forge, bioconda
+          conda-channels: conda-forge, bioconda
       - run: conda --version
       - run: which python
+      - name: Setup Snakemake environment
+        run: |
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          conda install -c conda-forge -q mamba
+          mamba create -c conda-forge -c bioconda -n snakemake snakemake
