@@ -402,7 +402,7 @@ rule genome_consensus:
     input:
         ref=REF_GENOME,
         reads=lambda wildcards: expand(
-            "output/{{sample}}/{run}/unmaphost.fq",
+            "output/{{sample}}/{run}/filtered.fq",
             run=samples[wildcards.sample],
         ),
         vcf="output/{sample}/filtered.vcf",
@@ -469,16 +469,16 @@ rule snpeff:
     """
     input:
         calls="output/{sample}/lofreq.vcf",
-        db="refseq/data/NC045512"
+        db="refseq/NC045512"
     output:
         calls="output/{sample}/snpeff.vcf", # annotated calls (vcf, bcf, or vcf.gz)
         stats="output/{sample}/snpeff.html", # summary statistics (in HTML), optional
         csvstats="output/{sample}/snpeff.csv", # summary statistics in CSV, optional
         genes="output/{sample}/snpeff.genes.txt",
     log:
-        "output/{sample}/log/snpeff_lofreq.log",
+        "output/{sample}/log/snpeff.log",
     params:
-        extra="-c refseq/snpEffect.config", 
+        extra="-configOption NC045512.genome=NC045512", 
     resources:
         runtime=120,
         mem_mb=4000,
