@@ -527,32 +527,25 @@ fastq_screen_db = {
     if os.path.exists(v if v else "")
 }
 
-if fastq_screen_db:
 
-    fastq_screen_config = {
-        "database": fastq_screen_db
-    }
-
-    rule fastq_screen:
-        """
-        Estimate reads mapping to host and bacteria (rRNA).
-        """
-        input:
-            rules.filter.output.out,
-        output:
-            txt="output/{sample}/{run}/fastq_screen.txt",
-            html="output/{sample}/{run}/fastq_screen.html",
-        params:
-            fastq_screen_config=fastq_screen_config,
-            subset=100000,
-        resources:
-            runtime=120,
-            mem_mb=8000,
-        threads: 4
-        wrapper:
-            f"{WRAPPER_PREFIX}/v0.2.1/fastq_screen"
-else:
-    print("Skipping fastq_screen as no databases were found.")
+rule fastq_screen:
+    """
+    Estimate reads mapping to host and bacteria (rRNA).
+    """
+    input:
+        rules.filter.output.out,
+    output:
+        txt="output/{sample}/{run}/fastq_screen.txt",
+        html="output/{sample}/{run}/fastq_screen.html",
+    params:
+        fastq_screen_config={"database": fastq_screen_db},
+        subset=100000,
+    resources:
+        runtime=120,
+        mem_mb=8000,
+    threads: 4
+    wrapper:
+        f"{WRAPPER_PREFIX}/v0.2.1/fastq_screen"
 
 
 rule fastqc:
