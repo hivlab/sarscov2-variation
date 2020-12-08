@@ -153,58 +153,12 @@ rule filter:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/bbduk"
 
 
-rule maprRNA:
-    """
-    Remove rRNA sequences.
-    """
-    input:
-        input=rules.filter.output.out,
-        ref=RRNA_DB,
-    output:
-        outu="output/{sample}/{run}/unmaprRNA.fq",
-        outm="output/{sample}/{run}/maprRNA.fq",
-        statsfile="output/{sample}/{run}/maprrna.txt",
-    params:
-        extra=(
-            lambda wildcards, resources: f"minratio=0.9 maxindel=3 bwr=0.16 bw=12 fast minhits=2 qtrim=r trimq=10 untrim idtag printunmappedcount kfilter=25 maxsites=1 k=14 maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
-        ),
-    resources:
-        runtime=120,
-        mem_mb=16000,
-    threads: 4
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
-
-
-rule maphost:
-    """
-    Remove host sequences.
-    """
-    input:
-        input=rules.maprRNA.output.outu,
-        ref=HOST_GENOME,
-    output:
-        outu="output/{sample}/{run}/unmaphost.fq",
-        outm="output/{sample}/{run}/maphost.fq",
-        statsfile="output/{sample}/{run}/maphost.txt",
-    params:
-        extra=(
-            lambda wildcards, resources: f"minratio=0.9 maxindel=3 bwr=0.16 bw=12 fast minhits=2 qtrim=r trimq=10 untrim idtag printunmappedcount kfilter=25 maxsites=1 k=14 maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g"
-        ),
-    resources:
-        runtime=lambda wildcards, attempt: attempt * 200,
-        mem_mb=24000,
-    threads: 4
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
-
-
 rule refgenome:
     """
     Map reads to ref genome.
     """
     input:
-        input=rules.maphost.output.outu,
+        input=rules.filter.output.out,
         ref=REF_GENOME,
     output:
         out="output/{sample}/{run}/refgenome.bam",
