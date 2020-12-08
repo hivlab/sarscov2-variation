@@ -32,4 +32,4 @@ jobs:
           export PATH="/usr/share/miniconda/bin:$PATH"
           eval "$(conda shell.bash hook)"
           conda activate snakemake
-          snakemake --use-conda -d test -j
+          snakemake --use-conda --resources mem_mb=4000 -d test -j

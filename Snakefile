@@ -174,7 +174,7 @@ rule refgenome:
         ),
     resources:
         runtime=120,
-        mem_mb=4000,
+        mem_mb=16000,
     threads: 4
     wrapper:
         f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
