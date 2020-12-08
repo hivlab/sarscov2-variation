@@ -1,4 +1,4 @@
-![status](https://img.shields.io/badge/status-under%20development-yellow)
+![status](https://img.shields.io/badge/status-under%20development-yellow)![CI](https://github.com/avilab/sarscov2-variation/workflows/CI/badge.svg)
 
 # sarscov2-variation
 
@@ -50,7 +50,7 @@ B  | B1 | /path/to/B1.fq | ILLUMINA
 
 
 ## Download databases
-
+(Optional) Human and rRNA sequence databases for FastQ Screen. In absence of databases fastq screen rule will be skipped.
 ### Human reference genome
 
 Human genomic sequence database is used to estimate and remove human sequences from analysis.
