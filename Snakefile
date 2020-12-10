@@ -147,27 +147,11 @@ rule correct2:
     input:
         input=rules.correct1.output.out,
     output:
-        out=temp("output/{sample}/{run}/eccc.fq"),
-    params:
-        extra="passes=4 reorder",
-    log:
-        "output/{sample}/{run}/log/correct2.log",
-    resources:
-        runtime=120,
-        mem_mb=lambda wildcards, input: round(4000 + 3 * input.size_mb),
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.6/bbtools/clumpify"
-
-
-rule correct3:
-    input:
-        input=rules.correct2.output.out,
-    output:
         out=temp("output/{sample}/{run}/ecct.fq"),
     params:
-        extra="mode=correct k=62 ordered",
+        extra="mode=correct k=50 ordered",
     log:
-        "output/{sample}/{run}/log/correct3.log",
+        "output/{sample}/{run}/log/correct2.log",
     resources:
         runtime=120,
         mem_mb=lambda wildcards, input: round(4000 + 6 * input.size_mb),
@@ -197,7 +181,7 @@ rule refgenome:
     shadow: 
         "minimal"
     params:
-        extra=lambda wildcards: f"usemodulo slow k=12 maxlen=600 nodisk RGPL=Illumina RGID={wildcards.sample} RGSM={wildcards.sample}",
+        extra=lambda wildcards: f"usemodulo slow k=12 nodisk RGPL=Illumina RGID={wildcards.sample} RGSM={wildcards.sample}",
     resources:
         runtime=120,
         mem_mb=4000,
