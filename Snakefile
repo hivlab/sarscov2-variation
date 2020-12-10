@@ -178,10 +178,12 @@ rule refgenome:
         bhist="output/{sample}/bhist.txt",
     log:
         "output/{sample}/log/refgenome.log",
-    shadow: 
+    shadow:
         "minimal"
     params:
-        extra=lambda wildcards: f"usemodulo slow k=12 nodisk RGPL=Illumina RGID={wildcards.sample} RGSM={wildcards.sample}",
+        extra=(
+            lambda wildcards: f"usemodulo slow k=12 nodisk RGPL=Illumina RGID={wildcards.sample} RGSM={wildcards.sample}"
+        ),
     resources:
         runtime=120,
         mem_mb=4000,
@@ -190,33 +192,16 @@ rule refgenome:
         f"{WRAPPER_PREFIX}/v0.6/bbtools/bbwrap"
 
 
-rule realign:
-    input:
-        bam=rules.refgenome.output.out,
-        ref=REF_GENOME,
-    output:
-        temp("output/{sample}/realigned.bam"),
-    log:
-        "output/{sample}/log/realign.log",
-    params:
-        extra="--verbose",
-    resources:
-        runtime=120,
-        mem_mb=4000,
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.6/lofreq/viterbi"
-
-
 rule samtools_sort:
     input:
-        rules.realign.output[0],
+        rules.refgenome.output.out,
     output:
         temp("output/{sample}/sorted.bam"),
     log:
         "output/{sample}/log/samtools_sort.log",
     params:
-        extra = lambda wildcards, resources: f"-m {resources.mem_mb}M",
-        tmp_dir = "/tmp/"
+        extra=lambda wildcards, resources: f"-m {resources.mem_mb}M",
+        tmp_dir="/tmp/",
     threads: 8
     resources:
         mem_mb=4000,
@@ -242,13 +227,34 @@ rule mark_duplicates:
         "0.68.0/bio/picard/markduplicates"
 
 
+rule indelqual:
+    """
+    Indel recalibration.
+    """
+    input:
+        ref=REF_GENOME,
+        bam=rules.mark_duplicates.output.bam,
+    output:
+        "output/{sample}/indelqual.bam",
+    log:
+        "output/{sample}/log/indelqual.log",
+    params:
+        extra="--verbose",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    threads: 8
+    wrapper:
+        f"{WRAPPER_PREFIX}/v0.6/lofreq/indelqual"
+
+
 rule lofreq1:
     """
     Variant calling.
     """
     input:
         ref=REF_GENOME,
-        bam=rules.mark_duplicates.output.bam,
+        bam=rules.indelqual.output[0],
     output:
         "output/{sample}/lofreq1.vcf",
     log:
@@ -320,33 +326,12 @@ rule applybqsr:
         "0.68.0/bio/gatk/applybqsr"
 
 
-rule indelqual:
-    """
-    Indel recalibration.
-    """
-    input:
-        ref=REF_GENOME,
-        bam=rules.applybqsr.output[0],
-    output:
-        "output/{sample}/indelqual.bam",
-    log:
-        "output/{sample}/log/indelqual.log",
-    params:
-        extra="--verbose",
-    resources:
-        runtime=120,
-        mem_mb=4000,
-    threads: 8
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.6/lofreq/indelqual"
-
-
 rule pileup:
     """
     Calculate coverage.
     """
     input:
-        input=rules.indelqual.output[0],
+        input=rules.applybqsr.output.bam,
         ref=REF_GENOME,
     output:
         out="output/{sample}/covstats.txt",
@@ -547,7 +532,7 @@ rule fastq_screen:
         txt="output/{sample}/{run}/fastq_screen.txt",
         html="output/{sample}/{run}/fastq_screen.html",
     log:
-        "output/{sample}/{run}/log/fastq_screen.log"
+        "output/{sample}/{run}/log/fastq_screen.log",
     params:
         fastq_screen_config={"database": fastq_screen_db},
         subset=100000,
