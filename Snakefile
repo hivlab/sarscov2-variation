@@ -77,38 +77,15 @@ rule reformat:
         unpack(get_fastq),
     output:
         out=temp("output/{sample}/{run}/interleaved.fq"),
-    params:
-        extra=lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g da",
-    resources:
-        runtime=120,
-        mem_mb=4000,
     log:
         "output/{sample}/{run}/log/reformat.log",
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/bbtools/reformat"
-
-
-rule clumpify:
-    """
-    Group overlapping reads into clumps, 
-    to accelerate mapping.
-    """
-    input:
-        input=rules.reformat.output.out,
-    output:
-        out=temp("output/{sample}/{run}/clumpify.fq"),
     params:
-        extra=(
-            lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g dedupe optical spany adjacent markduplicates optical qin=33 da"
-        ), # suppress assertions
+        extra="",
     resources:
         runtime=120,
         mem_mb=4000,
-    threads: 8
-    log:
-        "output/{sample}/{run}/log/clumpify.log",
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/bbtools/clumpify"
+        f"{WRAPPER_PREFIX}/v0.6/bbtools/reformat"
 
 
 rule trim:
@@ -116,20 +93,18 @@ rule trim:
     Quality trimming of the reads.
     """
     input:
-        input=rules.clumpify.output.out,
+        input=rules.reformat.output.out,
     output:
         out=temp("output/{sample}/{run}/trimmed.fq"),
+    log:
+        "output/{sample}/{run}/log/trim.log",
     params:
-        extra=(
-            lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g maq=10 qtrim=r trimq=10 ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=100 ref=adapters ftm=5 ordered qin=33"
-        ),
+        extra="maq=10 qtrim=r trimq=10 ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=100 ref=adapters ftm=5 ordered",
     resources:
         runtime=120,
         mem_mb=4000,
-    log:
-        "output/{sample}/{run}/log/trim.log",
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/bbtools/bbduk"
+        f"{WRAPPER_PREFIX}/v0.6/bbtools/bbduk"
 
 
 rule filter:
@@ -140,17 +115,48 @@ rule filter:
         input=rules.trim.output.out,
     output:
         out="output/{sample}/{run}/filtered.fq",
+    log:
+        "output/{sample}/{run}/log/filter.log",
     params:
-        extra=(
-            lambda wildcards, resources: f"-Xmx{resources.mem_mb / 1000:.0f}g k=31 ref=artifacts,phix ordered cardinality"
-        ),
+        extra="k=31 ref=artifacts,phix ordered cardinality",
     resources:
         runtime=120,
         mem_mb=4000,
-    log:
-        "output/{sample}/{run}/log/filter.log",
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/bbtools/bbduk"
+        f"{WRAPPER_PREFIX}/v0.6/bbtools/bbduk"
+
+
+rule correct1:
+    input:
+        input=rules.filter.output.out,
+    output:
+        out=temp("output/{sample}/{run}/ecco.fq"),
+    params:
+        extra="ecco mix vstrict ordered",
+    log:
+        "output/{sample}/{run}/log/correct1.log",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    threads: 8
+    wrapper:
+        f"{WRAPPER_PREFIX}/v0.6/bbtools/bbmerge"
+
+
+rule correct2:
+    input:
+        input=rules.correct1.output.out,
+    output:
+        out=temp("output/{sample}/{run}/ecct.fq"),
+    params:
+        extra="mode=correct k=50 ordered",
+    log:
+        "output/{sample}/{run}/log/correct2.log",
+    resources:
+        runtime=120,
+        mem_mb=lambda wildcards, input: round(4000 + 6 * input.size_mb),
+    wrapper:
+        f"{WRAPPER_PREFIX}/v0.6/bbtools/tadpole"
 
 
 rule refgenome:
@@ -158,69 +164,60 @@ rule refgenome:
     Map reads to ref genome.
     """
     input:
-        input=rules.filter.output.out,
+        input=lambda wildcards: expand(
+            "output/{{sample}}/{run}/ecct.fq", run=samples[wildcards.sample]
+        ),
         ref=REF_GENOME,
     output:
-        out="output/{sample}/{run}/refgenome.bam",
-        statsfile="output/{sample}/{run}/refgenome.txt",
-        gchist="output/{sample}/{run}/gchist.txt",
-        aqhist="output/{sample}/{run}/aqhist.txt",
-        lhist="output/{sample}/{run}/lhist.txt",
-        mhist="output/{sample}/{run}/mhist.txt",
-        bhist="output/{sample}/{run}/bhist.txt",
+        out="output/{sample}/refgenome.bam",
+        statsfile="output/{sample}/refgenome.txt",
+        gchist="output/{sample}/gchist.txt",
+        aqhist="output/{sample}/aqhist.txt",
+        lhist="output/{sample}/lhist.txt",
+        mhist="output/{sample}/mhist.txt",
+        bhist="output/{sample}/bhist.txt",
+    log:
+        "output/{sample}/log/refgenome.log",
+    shadow:
+        "minimal"
     params:
         extra=(
-            lambda wildcards, resources: f"slow k=12 maxlen=600 nodisk -Xmx{resources.mem_mb / 1000:.0f}g RGLB=lib1 RGPL={PLATFORM} RGID={wildcards.run} RGSM={wildcards.sample}"
+            lambda wildcards: f"usemodulo slow k=12 nodisk RGPL=Illumina RGID={wildcards.sample} RGSM={wildcards.sample}"
         ),
     resources:
         runtime=120,
-        mem_mb=16000,
+        mem_mb=4000,
     threads: 4
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/bbtools/bbwrap"
+        f"{WRAPPER_PREFIX}/v0.6/bbtools/bbwrap"
 
 
-rule samtools_view:
+rule samtools_sort:
     input:
         rules.refgenome.output.out,
     output:
-        "output/{sample}/{run}/filtered.bam",
+        temp("output/{sample}/sorted.bam"),
+    log:
+        "output/{sample}/log/samtools_sort.log",
     params:
-        "-h   -b  -q 20 -f 0x3", # optional params string
-    resources:
-        runtime=120,
-        mem_mb=4000,
-    wrapper:
-        "0.68.0/bio/samtools/view"
-
-
-rule sort_and_index:
-    """
-    Sort and index bam.
-    """
-    input:
-        rules.samtools_view.output[0],
-    output:
-        sorted="output/{sample}/{run}/sorted.bam",
-        index="output/{sample}/{run}/sorted.bam.bai",
-    params:
-        lambda wildcards, resources: f"-m {resources.mem_mb}M",
-    threads: 4
+        extra=lambda wildcards, resources: f"-m {resources.mem_mb}M",
+        tmp_dir="/tmp/",
+    threads: 8
     resources:
         mem_mb=4000,
         runtime=lambda wildcards, attempt: attempt * 240,
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/samtools/sort_and_index"
+        "0.68.0/bio/samtools/sort"
 
 
 rule mark_duplicates:
     input:
-        rules.sort_and_index.output.sorted,
+        rules.samtools_sort.output[0],
     output:
-        bam="output/{sample}/{run}/dedup.bam",
-        metrics="output/{sample}/{run}/dedup.txt",
+        bam="output/{sample}/dedup.bam",
+        metrics="output/{sample}/dedup.txt",
     log:
-        "output/{sample}/{run}/log/dedup.log",
+        "output/{sample}/log/dedup.log",
     params:
         "USE_JDK_DEFLATER='true' USE_JDK_INFLATER='true' REMOVE_DUPLICATES='true' ASSUME_SORTED='true'  DUPLICATE_SCORING_STRATEGY='SUM_OF_BASE_QUALITIES'  OPTICAL_DUPLICATE_PIXEL_DISTANCE='100'   VALIDATION_STRINGENCY='LENIENT' QUIET='true' VERBOSITY='ERROR'",
     resources:
@@ -230,21 +227,25 @@ rule mark_duplicates:
         "0.68.0/bio/picard/markduplicates"
 
 
-rule samtools_merge:
+rule indelqual:
     """
-    Merge bam files.
+    Indel recalibration.
     """
     input:
-        lambda wildcards: expand(
-            "output/{{sample}}/{run}/dedup.bam", run=samples[wildcards.sample],
-        ),
+        ref=REF_GENOME,
+        bam=rules.mark_duplicates.output.bam,
     output:
-        "output/{sample}/merged.bam",
+        "output/{sample}/indelqual.bam",
+    log:
+        "output/{sample}/log/indelqual.log",
     params:
-        "",
+        extra="--verbose",
+    resources:
+        runtime=120,
+        mem_mb=4000,
     threads: 8
     wrapper:
-        "0.62.0/bio/samtools/merge"
+        f"{WRAPPER_PREFIX}/v0.6/lofreq/indelqual"
 
 
 rule lofreq1:
@@ -253,17 +254,19 @@ rule lofreq1:
     """
     input:
         ref=REF_GENOME,
-        bam=rules.samtools_merge.output[0],
+        bam=rules.indelqual.output[0],
     output:
         "output/{sample}/lofreq1.vcf",
+    log:
+        "output/{sample}/log/lofreq1.log",
     params:
-        extra="--call-indels --min-cov 50 --max-depth 1000000  --min-bq 30 --min-alt-bq 30 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter",
+        extra="--min-cov 50 --max-depth 1000000  --min-bq 30 --min-alt-bq 30 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter",
     resources:
         runtime=120,
         mem_mb=4000,
     threads: 1
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/lofreq/call"
+        f"{WRAPPER_PREFIX}/v0.6/lofreq/call"
 
 
 rule indexfeaturefile:
@@ -274,6 +277,8 @@ rule indexfeaturefile:
         "output/{sample}/lofreq1.vcf",
     output:
         "output/{sample}/lofreq1.vcf.idx",
+    log:
+        "output/{sample}/log/indexfeaturefile.log",
     params:
         extra="",
     resources:
@@ -281,13 +286,13 @@ rule indexfeaturefile:
         mem_mb=4000,
     threads: 1
     wrapper:
-        f"{WRAPPER_PREFIX}/master/gatk/indexfeaturefile"
+        f"{WRAPPER_PREFIX}/v0.6.1/gatk/indexfeaturefile"
 
 
 rule gatk_baserecalibrator:
     input:
         ref=REF_GENOME,
-        bam=rules.samtools_merge.output[0],
+        bam=rules.mark_duplicates.output.bam,
         dict=REF_GENOME_DICT,
         known="output/{sample}/lofreq1.vcf",
         feature_index=rules.indexfeaturefile.output[0],
@@ -308,10 +313,12 @@ rule applybqsr:
     """
     input:
         ref=REF_GENOME,
-        bam=rules.samtools_merge.output[0],
+        bam=rules.mark_duplicates.output.bam,
         recal_table="output/{sample}/recal_table.grp",
     output:
         bam="output/{sample}/recalibrated.bam",
+    log:
+        "output/{sample}/log/applybqsr.log",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -319,42 +326,25 @@ rule applybqsr:
         "0.68.0/bio/gatk/applybqsr"
 
 
-rule indelqual:
-    """
-    Indel recalibration.
-    """
-    input:
-        ref=REF_GENOME,
-        bam=rules.applybqsr.output[0],
-    output:
-        "output/{sample}/indelqual.bam",
-    params:
-        extra="--verbose",
-    resources:
-        runtime=120,
-        mem_mb=4000,
-    threads: 1
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.3/lofreq/indelqual"
-
-
 rule pileup:
     """
     Calculate coverage.
     """
     input:
-        input=rules.indelqual.output[0],
+        input=rules.applybqsr.output.bam,
         ref=REF_GENOME,
     output:
         out="output/{sample}/covstats.txt",
         basecov="output/{sample}/basecov.txt",
+    log:
+        "output/{sample}/log/pileup.log",
     params:
-        extra=lambda wildcards, resources: f"-Xmx{resources.mem_mb}m concise",
+        extra="concise",
     resources:
         runtime=lambda wildcards, attempt: attempt * 120,
         mem_mb=lambda wildcards, attempt: attempt * 8000,
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/bbtools/pileup"
+        f"{WRAPPER_PREFIX}/v0.6/bbtools/pileup"
 
 
 rule lofreq2:
@@ -366,6 +356,8 @@ rule lofreq2:
         bam=rules.indelqual.output[0],
     output:
         "output/{sample}/lofreq.vcf",
+    log:
+        "output/{sample}/log/lofreq2.log",
     params:
         extra="--call-indels --min-cov 50 --max-depth 1000000  --min-bq 30 --min-alt-bq 30 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter",
     resources:
@@ -373,7 +365,7 @@ rule lofreq2:
         mem_mb=4000,
     threads: 1
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/lofreq/call"
+        f"{WRAPPER_PREFIX}/v0.6/lofreq/call"
 
 
 rule vcffilter:
@@ -384,6 +376,8 @@ rule vcffilter:
         "output/{sample}/lofreq.vcf",
     output:
         "output/{sample}/filtered.vcf",
+    log:
+        "output/{sample}/log/vcffilter.log",
     params:
         extra="-f 'AF > 0.5'",
     resources:
@@ -468,7 +462,7 @@ rule snpeff:
     Functional annotation of variants.
     """
     input:
-        calls="output/{sample}/lofreq.vcf",
+        calls="output/{sample}/filtered.vcf",
         db="refseq/NC045512",
     output:
         calls="output/{sample}/snpeff.vcf", # annotated calls (vcf, bcf, or vcf.gz)
@@ -537,6 +531,8 @@ rule fastq_screen:
     output:
         txt="output/{sample}/{run}/fastq_screen.txt",
         html="output/{sample}/{run}/fastq_screen.html",
+    log:
+        "output/{sample}/{run}/log/fastq_screen.log",
     params:
         fastq_screen_config={"database": fastq_screen_db},
         subset=100000,
@@ -569,7 +565,7 @@ rule bamstats:
     Host genome mapping stats.
     """
     input:
-        rules.samtools_merge.output[0],
+        rules.refgenome.output.out,
     output:
         "output/{sample}/bamstats.txt",
     resources:
