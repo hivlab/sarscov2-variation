@@ -11,14 +11,14 @@ from datetime import datetime
 
 
 # Load configuration file with sample and path info
-configfile: "config.yaml"
+configfile: "config/config.yaml"
 
 
 validate(config, "schemas/config.schema.yaml")
 
 
 # Load runs and groups
-df = pd.read_csv("samples.tsv", sep="\s+", dtype=str).set_index(
+df = pd.read_csv("config/samples.tsv", sep="\s+", dtype=str).set_index(
     ["sample", "run"], drop=False
 )
 validate(df, "schemas/samples.schema.yaml")
@@ -53,10 +53,10 @@ report: "report/workflow.rst"
 
 rule all:
     input:
-        "output/consensus_masked_hd.fa" if HEXDIG else "output/consensus_masked.fa",
-        "output/snpsift.csv",
-        "output/multiqc.html",
-        expand(["output/{sample}/basecov.txt"], sample=list(samples.keys())),
+        "results/consensus_masked_hd.fa" if HEXDIG else "results/consensus_masked.fa",
+        "results/snpsift.csv",
+        "results/multiqc.html",
+        expand("results/{sample}/basecov.txt", sample=list(samples.keys())),
 
 
 def get_fastq(wildcards):
@@ -76,9 +76,9 @@ rule reformat:
     input:
         unpack(get_fastq),
     output:
-        out=temp("output/{sample}/{run}/interleaved.fq"),
+        out=temp("results/{sample}/{run}/interleaved.fq"),
     log:
-        "output/{sample}/{run}/log/reformat.log",
+        "results/{sample}/{run}/log/reformat.log",
     params:
         extra="",
     resources:
@@ -95,9 +95,9 @@ rule trim:
     input:
         input=rules.reformat.output.out,
     output:
-        out=temp("output/{sample}/{run}/trimmed.fq"),
+        out=temp("results/{sample}/{run}/trimmed.fq"),
     log:
-        "output/{sample}/{run}/log/trim.log",
+        "results/{sample}/{run}/log/trim.log",
     params:
         extra="maq=10 qtrim=r trimq=10 ktrim=r k=23 mink=11 hdist=1 tbo tpe minlen=100 ref=adapters ftm=5 ordered",
     resources:
@@ -114,9 +114,9 @@ rule filter:
     input:
         input=rules.trim.output.out,
     output:
-        out="output/{sample}/{run}/filtered.fq",
+        out="results/{sample}/{run}/filtered.fq",
     log:
-        "output/{sample}/{run}/log/filter.log",
+        "results/{sample}/{run}/log/filter.log",
     params:
         extra="k=31 ref=artifacts,phix ordered cardinality",
     resources:
@@ -130,11 +130,11 @@ rule correct1:
     input:
         input=rules.filter.output.out,
     output:
-        out=temp("output/{sample}/{run}/ecco.fq"),
+        out=temp("results/{sample}/{run}/ecco.fq"),
     params:
         extra="ecco mix vstrict ordered",
     log:
-        "output/{sample}/{run}/log/correct1.log",
+        "results/{sample}/{run}/log/correct1.log",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -147,11 +147,11 @@ rule correct2:
     input:
         input=rules.correct1.output.out,
     output:
-        out=temp("output/{sample}/{run}/ecct.fq"),
+        out=temp("results/{sample}/{run}/ecct.fq"),
     params:
         extra="mode=correct k=50 ordered",
     log:
-        "output/{sample}/{run}/log/correct2.log",
+        "results/{sample}/{run}/log/correct2.log",
     resources:
         runtime=120,
         mem_mb=lambda wildcards, input: round(4000 + 6 * input.size_mb),
@@ -165,24 +165,24 @@ rule refgenome:
     """
     input:
         input=lambda wildcards: expand(
-            "output/{{sample}}/{run}/ecct.fq", run=samples[wildcards.sample]
+            "results/{{sample}}/{run}/ecct.fq", run=samples[wildcards.sample]
         ),
         ref=REF_GENOME,
     output:
-        out="output/{sample}/refgenome.bam",
-        statsfile="output/{sample}/refgenome.txt",
-        gchist="output/{sample}/gchist.txt",
-        aqhist="output/{sample}/aqhist.txt",
-        lhist="output/{sample}/lhist.txt",
-        mhist="output/{sample}/mhist.txt",
-        bhist="output/{sample}/bhist.txt",
+        out="results/{sample}/refgenome.bam",
+        statsfile="results/{sample}/refgenome.txt",
+        gchist="results/{sample}/gchist.txt",
+        aqhist="results/{sample}/aqhist.txt",
+        lhist="results/{sample}/lhist.txt",
+        mhist="results/{sample}/mhist.txt",
+        bhist="results/{sample}/bhist.txt",
     log:
-        "output/{sample}/log/refgenome.log",
+        "results/{sample}/log/refgenome.log",
     shadow:
         "minimal"
     params:
         extra=(
-            lambda wildcards: f"usemodulo slow k=12 nodisk RGPL=Illumina RGID={wildcards.sample} RGSM={wildcards.sample}"
+            lambda wildcards: f"usemodulo slow k=12 nodisk RGPL={PLATFORM} RGID={wildcards.sample} RGSM={wildcards.sample}"
         ),
     resources:
         runtime=120,
@@ -196,9 +196,9 @@ rule samtools_sort:
     input:
         rules.refgenome.output.out,
     output:
-        temp("output/{sample}/sorted.bam"),
+        temp("results/{sample}/sorted.bam"),
     log:
-        "output/{sample}/log/samtools_sort.log",
+        "results/{sample}/log/samtools_sort.log",
     params:
         extra=lambda wildcards, resources: f"-m {resources.mem_mb}M",
         tmp_dir="/tmp/",
@@ -214,10 +214,10 @@ rule mark_duplicates:
     input:
         rules.samtools_sort.output[0],
     output:
-        bam="output/{sample}/dedup.bam",
-        metrics="output/{sample}/dedup.txt",
+        bam="results/{sample}/dedup.bam",
+        metrics="results/{sample}/dedup.txt",
     log:
-        "output/{sample}/log/dedup.log",
+        "results/{sample}/log/dedup.log",
     params:
         "USE_JDK_DEFLATER='true' USE_JDK_INFLATER='true' REMOVE_DUPLICATES='true' ASSUME_SORTED='true'  DUPLICATE_SCORING_STRATEGY='SUM_OF_BASE_QUALITIES'  OPTICAL_DUPLICATE_PIXEL_DISTANCE='100'   VALIDATION_STRINGENCY='LENIENT' QUIET='true' VERBOSITY='ERROR'",
     resources:
@@ -235,9 +235,9 @@ rule indelqual:
         ref=REF_GENOME,
         bam=rules.mark_duplicates.output.bam,
     output:
-        "output/{sample}/indelqual.bam",
+        "results/{sample}/indelqual.bam",
     log:
-        "output/{sample}/log/indelqual.log",
+        "results/{sample}/log/indelqual.log",
     params:
         extra="--verbose",
     resources:
@@ -256,9 +256,9 @@ rule lofreq1:
         ref=REF_GENOME,
         bam=rules.indelqual.output[0],
     output:
-        "output/{sample}/lofreq1.vcf",
+        "results/{sample}/lofreq1.vcf",
     log:
-        "output/{sample}/log/lofreq1.log",
+        "results/{sample}/log/lofreq1.log",
     params:
         extra="--min-cov 50 --max-depth 1000000  --min-bq 30 --min-alt-bq 30 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter",
     resources:
@@ -274,11 +274,11 @@ rule indexfeaturefile:
     Index vcf vile.
     """
     input:
-        "output/{sample}/lofreq1.vcf",
+        "results/{sample}/lofreq1.vcf",
     output:
-        "output/{sample}/lofreq1.vcf.idx",
+        "results/{sample}/lofreq1.vcf.idx",
     log:
-        "output/{sample}/log/indexfeaturefile.log",
+        "results/{sample}/log/indexfeaturefile.log",
     params:
         extra="",
     resources:
@@ -294,12 +294,12 @@ rule gatk_baserecalibrator:
         ref=REF_GENOME,
         bam=rules.mark_duplicates.output.bam,
         dict=REF_GENOME_DICT,
-        known="output/{sample}/lofreq1.vcf",
+        known="results/{sample}/lofreq1.vcf",
         feature_index=rules.indexfeaturefile.output[0],
     output:
-        recal_table="output/{sample}/recal_table.grp",
+        recal_table="results/{sample}/recal_table.grp",
     log:
-        "output/{sample}/log/baserecalibrator.log",
+        "results/{sample}/log/baserecalibrator.log",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -314,11 +314,11 @@ rule applybqsr:
     input:
         ref=REF_GENOME,
         bam=rules.mark_duplicates.output.bam,
-        recal_table="output/{sample}/recal_table.grp",
+        recal_table="results/{sample}/recal_table.grp",
     output:
-        bam="output/{sample}/recalibrated.bam",
+        bam="results/{sample}/recalibrated.bam",
     log:
-        "output/{sample}/log/applybqsr.log",
+        "results/{sample}/log/applybqsr.log",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -334,10 +334,10 @@ rule pileup:
         input=rules.applybqsr.output.bam,
         ref=REF_GENOME,
     output:
-        out="output/{sample}/covstats.txt",
-        basecov="output/{sample}/basecov.txt",
+        out="results/{sample}/covstats.txt",
+        basecov="results/{sample}/basecov.txt",
     log:
-        "output/{sample}/log/pileup.log",
+        "results/{sample}/log/pileup.log",
     params:
         extra="concise",
     resources:
@@ -355,9 +355,9 @@ rule lofreq2:
         ref=REF_GENOME,
         bam=rules.indelqual.output[0],
     output:
-        "output/{sample}/lofreq.vcf",
+        "results/{sample}/lofreq.vcf",
     log:
-        "output/{sample}/log/lofreq2.log",
+        "results/{sample}/log/lofreq2.log",
     params:
         extra="--call-indels --min-cov 50 --max-depth 1000000  --min-bq 30 --min-alt-bq 30 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter",
     resources:
@@ -373,11 +373,11 @@ rule vcffilter:
     Filter variants based on allele frequency.
     """
     input:
-        "output/{sample}/lofreq.vcf",
+        "results/{sample}/lofreq.vcf",
     output:
-        "output/{sample}/filtered.vcf",
+        "results/{sample}/filtered.vcf",
     log:
-        "output/{sample}/log/vcffilter.log",
+        "results/{sample}/log/vcffilter.log",
     params:
         extra="-f 'AF > 0.5'",
     resources:
@@ -395,17 +395,17 @@ rule genome_consensus:
     input:
         ref=REF_GENOME,
         reads=lambda wildcards: expand(
-            "output/{{sample}}/{run}/filtered.fq", run=samples[wildcards.sample],
+            "results/{{sample}}/{run}/filtered.fq", run=samples[wildcards.sample],
         ),
-        vcf="output/{sample}/filtered.vcf",
+        vcf="results/{sample}/filtered.vcf",
     output:
-        vcfgz="output/{sample}/filtered.vcf.gz",
-        consensus="output/{sample}/consensus_badname.fa",
-        sam="output/{sample}/consensus.sam",
-        consensus_masked="output/{sample}/consensus_masked_badname.fa",
-        bed="output/{sample}/merged.bed",
+        vcfgz="results/{sample}/filtered.vcf.gz",
+        consensus="results/{sample}/consensus_badname.fa",
+        sam="results/{sample}/consensus.sam",
+        consensus_masked="results/{sample}/consensus_masked_badname.fa",
+        bed="results/{sample}/merged.bed",
     log:
-        "output/{sample}/log/genome_consensus.log",
+        "results/{sample}/log/genome_consensus.log",
     params:
         mask=1,
         extra=(
@@ -425,7 +425,7 @@ rule rename:
     input:
         rules.genome_consensus.output.consensus_masked,
     output:
-        "output/{sample}/consensus_masked_hd.fa" if HEXDIG else "output/{sample}/consensus_masked.fa",
+        "results/{sample}/consensus_masked_hd.fa" if HEXDIG else "results/{sample}/consensus_masked.fa",
     params:
         sample=lambda wildcards: wildcards.sample,
         stub=f"SARS-CoV-2/human/{COUNTRY}/{{}}/{YEAR}",
@@ -443,13 +443,13 @@ rule merge_renamed:
     """
     input:
         expand(
-            "output/{sample}/consensus_masked_hd.fa"
+            "results/{sample}/consensus_masked_hd.fa"
             if HEXDIG
-            else "output/{sample}/consensus_masked.fa",
+            else "results/{sample}/consensus_masked.fa",
             sample=samples.keys(),
         ),
     output:
-        "output/consensus_masked_hd.fa" if HEXDIG else "output/consensus_masked.fa",
+        "results/consensus_masked_hd.fa" if HEXDIG else "results/consensus_masked.fa",
     resources:
         runtime=120,
         mem_mb=2000,
@@ -462,15 +462,15 @@ rule snpeff:
     Functional annotation of variants.
     """
     input:
-        calls="output/{sample}/filtered.vcf",
-        db="refseq/NC045512",
+        calls="results/{sample}/filtered.vcf",
+        db="resources/refseq/NC045512",
     output:
-        calls="output/{sample}/snpeff.vcf", # annotated calls (vcf, bcf, or vcf.gz)
-        stats="output/{sample}/snpeff.html", # summary statistics (in HTML), optional
-        csvstats="output/{sample}/snpeff.csv", # summary statistics in CSV, optional
-        genes="output/{sample}/snpeff.genes.txt",
+        calls="results/{sample}/snpeff.vcf", # annotated calls (vcf, bcf, or vcf.gz)
+        stats="results/{sample}/snpeff.html", # summary statistics (in HTML), optional
+        csvstats="results/{sample}/snpeff.csv", # summary statistics in CSV, optional
+        genes="results/{sample}/snpeff.genes.txt",
     log:
-        "output/{sample}/log/snpeff.log",
+        "results/{sample}/log/snpeff.log",
     params:
         extra="-configOption NC045512.genome=NC045512",
     resources:
@@ -487,7 +487,7 @@ rule snpsift:
     input:
         rules.snpeff.output.calls,
     output:
-        "output/{sample}/snpsift.txt",
+        "results/{sample}/snpsift.txt",
     params:
         extra="-s ',' -e '.'",
         fieldnames="CHROM POS REF ALT DP AF SB DP4 EFF[*].IMPACT EFF[*].FUNCLASS EFF[*].EFFECT EFF[*].GENE EFF[*].CODON",
@@ -500,9 +500,9 @@ rule merge_tables:
     Merge variant tables.
     """
     input:
-        expand("output/{sample}/snpsift.txt", sample=samples.keys()),
+        expand("results/{sample}/snpsift.txt", sample=samples.keys()),
     output:
-        "output/snpsift.csv",
+        "results/snpsift.csv",
     run:
         import pandas as pd
 
@@ -529,10 +529,10 @@ rule fastq_screen:
     input:
         rules.filter.output.out,
     output:
-        txt="output/{sample}/{run}/fastq_screen.txt",
-        html="output/{sample}/{run}/fastq_screen.html",
+        txt="results/{sample}/{run}/fastq_screen.txt",
+        html="results/{sample}/{run}/fastq_screen.html",
     log:
-        "output/{sample}/{run}/log/fastq_screen.log",
+        "results/{sample}/{run}/log/fastq_screen.log",
     params:
         fastq_screen_config={"database": fastq_screen_db},
         subset=100000,
@@ -551,8 +551,8 @@ rule fastqc:
     input:
         rules.reformat.output.out,
     output:
-        html="output/{sample}/{run}/fastqc.html",
-        zip="output/{sample}/{run}/fastqc.zip",
+        html="results/{sample}/{run}/fastqc.html",
+        zip="results/{sample}/{run}/fastqc.zip",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -567,7 +567,7 @@ rule bamstats:
     input:
         rules.refgenome.output.out,
     output:
-        "output/{sample}/bamstats.txt",
+        "results/{sample}/bamstats.txt",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -582,29 +582,29 @@ rule multiqc:
     input:
         expand(
             [
-                "output/{sample}/{run}/fastq_screen.txt",
-                "output/{sample}/{run}/fastqc.zip",
+                "results/{sample}/{run}/fastq_screen.txt",
+                "results/{sample}/{run}/fastqc.zip",
             ]
             if fastq_screen_db
-            else "output/{sample}/{run}/fastqc.zip",
+            else "results/{sample}/{run}/fastqc.zip",
             zip,
             sample=SAMPLE,
             run=RUN,
         ),
         expand(
-            ["output/{sample}/snpeff.csv", "output/{sample}/bamstats.txt"],
+            ["results/{sample}/snpeff.csv", "results/{sample}/bamstats.txt"],
             sample=samples.keys(),
         ),
     output:
         report(
-            "output/multiqc.html",
+            "results/multiqc.html",
             caption="report/multiqc.rst",
             category="Quality control",
         ),
     params:
         "-d -dd 1",
     log:
-        "output/multiqc.log",
+        "results/multiqc.log",
     resources:
         runtime=120,
         mem_mb=4000,
