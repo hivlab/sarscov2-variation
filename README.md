@@ -1,10 +1,14 @@
-![status](https://img.shields.io/badge/status-under%20development-yellow)![CI](https://github.com/avilab/sarscov2-variation/workflows/CI/badge.svg)
+![Samples](https://img.shields.io/badge/KoroGeno--EST-318%20seqs-blue)![CI](https://github.com/avilab/sarscov2-variation/workflows/CI/badge.svg)
 
 # sarscov2-variation
 
 Snakemake workflow to align SARS-CoV-2 paired-end sequencing reads to NCBI reference sequence NC_045512.2.
 
-The workflow preprocesses and maps reads to NC_045512.2 Wuhan seafood market pneumonia virus isolate Wuhan-Hu-1 using Bbmap suite, calls variations with Lofreq and generates consensus fasta sequences with low coverage sites masked.
+The workflow preprocesses and maps reads to NC_045512.2 Wuhan seafood market pneumonia virus isolate Wuhan-Hu-1 using Bbmap, calls variations with Lofreq and generates consensus fasta sequences with sites with zero coverage masked.
+
+
+> This workflow was used to analyse SARS-CoV-2 sequences under [the KoroGeno-EST project](http://www.ctm.ee/et/covid-19/eesti-sars-cov-2-taisgenoomide-jarjestamine-korogeno-est/).
+
 
 Main outputs:
 
@@ -67,14 +71,9 @@ Setup environment variable "SILVA_DB" pointing to this file or edit "RRNA_DB" va
 
 ## Running
 
-Analyse sequences in the test folder:
+Analyse sequences in the **test** folder:
 ```bash
 snakemake --use-conda -d test -j 1
-```
-
-Generate test run report:
-```bash
-snakemake --report report.html -d test -j 1
 ```
 
 Dry run:
