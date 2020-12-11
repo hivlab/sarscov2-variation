@@ -99,4 +99,4 @@ Workflow graph can be generated:
 snakemake --dag -d test | dot -Tsvg > graph/dag.svg
 ```
 
-![dag](graph/dag.svg)
+![rulegraph](images/rulegraph.svg)
