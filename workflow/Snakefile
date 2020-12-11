@@ -56,7 +56,7 @@ rule all:
         "results/consensus_masked_hd.fa" if HEXDIG else "results/consensus_masked.fa",
         "results/snpsift.csv",
         "results/multiqc.html",
-        expand(["results/{sample}/basecov.txt"], sample=list(samples.keys())),
+        expand("results/{sample}/basecov.txt", sample=list(samples.keys())),
 
 
 def get_fastq(wildcards):
