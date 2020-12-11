@@ -12,9 +12,9 @@ The workflow preprocesses and maps reads to NC_045512.2 Wuhan seafood market pne
 
 Main outputs:
 
-- output/consensus_masked.fa -- multi FASTA file with generated consensus sequences.
-- output/snpsift.csv -- csv file with filtered variant positions that were used to generate consensus sequences.
-- output/multiqc.html -- aggregated QC report in html format. 
+- results/consensus_masked.fa -- multi FASTA file with generated consensus sequences.
+- results/snpsift.csv -- csv file with filtered variant positions that were used to generate consensus sequences.
+- results/multiqc.html -- aggregated QC report in html format. 
 
 
 ## Installing conda and snakemake
