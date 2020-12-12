@@ -292,7 +292,7 @@ rule indexfeaturefile:
 rule gatk_baserecalibrator:
     input:
         ref=REF_GENOME,
-        bam=rules.mark_duplicates.output.bam,
+        bam=rules.indelqual.output[0],
         dict=REF_GENOME_DICT,
         known="results/{sample}/lofreq1.vcf",
         feature_index=rules.indexfeaturefile.output[0],
@@ -313,7 +313,7 @@ rule applybqsr:
     """
     input:
         ref=REF_GENOME,
-        bam=rules.mark_duplicates.output.bam,
+        bam=rules.indelqual.output[0],
         recal_table="results/{sample}/recal_table.grp",
     output:
         bam="results/{sample}/recalibrated.bam",
@@ -353,7 +353,7 @@ rule lofreq2:
     """
     input:
         ref=REF_GENOME,
-        bam=rules.indelqual.output[0],
+        bam=rules.applybqsr.output.bam,
     output:
         "results/{sample}/lofreq.vcf",
     log:
