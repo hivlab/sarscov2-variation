@@ -170,12 +170,6 @@ rule refgenome:
         ref=REF_GENOME,
     output:
         out="results/{sample}/refgenome.bam",
-        statsfile="results/{sample}/refgenome.txt",
-        gchist="results/{sample}/gchist.txt",
-        aqhist="results/{sample}/aqhist.txt",
-        lhist="results/{sample}/lhist.txt",
-        mhist="results/{sample}/mhist.txt",
-        bhist="results/{sample}/bhist.txt",
     log:
         "results/{sample}/log/refgenome.log",
     shadow:
