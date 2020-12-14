@@ -366,7 +366,7 @@ rule genome_consensus:
     input:
         ref=REF_GENOME,
         reads=lambda wildcards: expand(
-            "results/{{sample}}/{run}/filtered.fq", run=samples[wildcards.sample],
+            "results/{{sample}}/{run}/ecct.fq", run=samples[wildcards.sample],
         ),
         vcf="results/{sample}/filtered.vcf",
     output:
@@ -498,7 +498,7 @@ rule fastq_screen:
     Estimate reads mapping to host and bacteria (rRNA).
     """
     input:
-        rules.filter.output.out,
+        rules.correct2.output.out,
     output:
         txt="results/{sample}/{run}/fastq_screen.txt",
         html="results/{sample}/{run}/fastq_screen.html",
@@ -536,7 +536,7 @@ rule bamstats:
     Host genome mapping stats.
     """
     input:
-        rules.samtools_sort.output[0],
+        rules.realign.output[0],
     output:
         "results/{sample}/bamstats.txt",
     resources:

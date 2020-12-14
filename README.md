@@ -73,7 +73,7 @@ Setup environment variable "SILVA_DB" pointing to this file or edit "RRNA_DB" va
 
 Analyse sequences in the **test** folder:
 ```bash
-snakemake --use-conda -d test -j 1
+snakemake --use-conda -d .tests/integration -j 1
 ```
 
 Dry run:
@@ -96,7 +96,7 @@ This workflow can be run on a contemporary PC/laptop (e.g. i5/16G) with sufficie
 
 Workflow graph can be generated:
 ```bash
-snakemake --dag -d test | dot -Tsvg > graph/dag.svg
+snakemake --dag -d .tests/integration | dot -Tsvg > images/rulegraph.svg
 ```
 
 ![rulegraph](images/rulegraph.svg)
