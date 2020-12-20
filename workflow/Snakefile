@@ -236,32 +236,90 @@ rule mark_duplicates:
     wrapper:
         "0.68.0/bio/picard/markduplicates"
 
-
-rule realign:
+rule lofreq1:
+    """
+    Variant calling.
+    """
     input:
         ref=REF_GENOME,
         bam=rules.mark_duplicates.output.bam,
     output:
-        "results/{sample}/realign.bam",
+        "results/{sample}/lofreq1.vcf",
     log:
-        "results/{sample}/log/realign.log",
+        "results/{sample}/log/lofreq1.log",
     params:
-        extra="--verbose --keepflags",
+        extra="",
     resources:
         runtime=120,
         mem_mb=4000,
-    threads: 8
+    threads: 1
     wrapper:
-        f"{WRAPPER_PREFIX}/master/lofreq/viterbi"
+        f"{WRAPPER_PREFIX}/v0.6/lofreq/call"
 
 
-rule indelqual:
+rule indexfeaturefile:
     """
-    Indel recalibration.
+    Index vcf vile.
+    """
+    input:
+        "results/{sample}/lofreq1.vcf",
+    output:
+        "results/{sample}/lofreq1.vcf.idx",
+    log:
+        "results/{sample}/log/indexfeaturefile.log",
+    params:
+        extra="",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    threads: 1
+    wrapper:
+        f"{WRAPPER_PREFIX}/v0.6.1/gatk/indexfeaturefile"
+
+
+rule gatk_baserecalibrator:
+    input:
+        ref=REF_GENOME,
+        bam=rules.mark_duplicates.output.bam,
+        dict=REF_GENOME_DICT,
+        known="results/{sample}/lofreq1.vcf",
+        feature_index=rules.indexfeaturefile.output[0],
+    output:
+        recal_table="results/{sample}/recal_table.grp",
+    log:
+        "results/{sample}/log/baserecalibrator.log",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    wrapper:
+        "0.68.0/bio/gatk/baserecalibrator"
+
+
+rule applybqsr:
+    """
+    Inserts indel qualities into BAM.
     """
     input:
         ref=REF_GENOME,
-        bam=rules.realign.output[0],
+        bam=rules.mark_duplicates.output.bam,
+        recal_table="results/{sample}/recal_table.grp",
+    output:
+        bam="results/{sample}/recalibrated.bam",
+    log:
+        "results/{sample}/log/applybqsr.log",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    wrapper:
+        "0.68.0/bio/gatk/applybqsr"
+
+rule indelqual:
+    """
+    Insert indel qualities.
+    """
+    input:
+        ref=REF_GENOME,
+        bam=rules.applybqsr.output.bam,
     output:
         "results/{sample}/indelqual.bam",
     log:
@@ -276,40 +334,19 @@ rule indelqual:
         f"{WRAPPER_PREFIX}/v0.6/lofreq/indelqual"
 
 
-rule alnqual:
-    input:
-        ref=REF_GENOME,
-        bam=rules.indelqual.output[0],
-    output:
-        "results/{sample}/alnqual.bam",
-    log:
-        "results/{sample}/log/alnqual.log",
-    params:
-        extra="-b",
-    resources:
-        runtime=120,
-        mem_mb=4000,
-    threads: 8
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.7.0/lofreq/alnqual"
-
-
-LOFREQ_OPTS = "--call-indels --min-cov 50 --max-depth 1000000  --min-bq 30 --min-alt-bq 30 --min-mq 20 --max-mq 255 --min-jq 0 --min-alt-jq 0 --def-alt-jq 0 --sig 0.01 --bonf dynamic --no-default-filter"
-
-
 rule lofreq:
     """
     Variant calling.
     """
     input:
         ref=REF_GENOME,
-        bam=rules.alnqual.output[0],
+        bam=rules.indelqual.output[0],
     output:
         "results/{sample}/lofreq.vcf",
     log:
         "results/{sample}/log/lofreq.log",
     params:
-        extra=LOFREQ_OPTS,
+        extra="--call-indels",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -323,7 +360,7 @@ rule pileup:
     Calculate coverage.
     """
     input:
-        input=rules.realign.output[0],
+        input=rules.applybqsr.output.bam,
         ref=REF_GENOME,
     output:
         out="results/{sample}/covstats.txt",
@@ -536,7 +573,7 @@ rule bamstats:
     Host genome mapping stats.
     """
     input:
-        rules.realign.output[0],
+        rules.applybqsr.output.bam,
     output:
         "results/{sample}/bamstats.txt",
     resources:
