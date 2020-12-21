@@ -390,7 +390,7 @@ rule vcffilter:
     log:
         "results/{sample}/log/vcffilter.log",
     params:
-        extra="-f 'AF > 0.5'",
+        extra="-f 'AF > 0.5 AND DP > 50'",
     resources:
         runtime=120,
         mem_mb=4000,
