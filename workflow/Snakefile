@@ -229,7 +229,7 @@ rule mark_duplicates:
     log:
         "results/{sample}/log/dedup.log",
     params:
-        "USE_JDK_DEFLATER='true' USE_JDK_INFLATER='true' REMOVE_DUPLICATES='true' ASSUME_SORTED='true' DUPLICATE_SCORING_STRATEGY='SUM_OF_BASE_QUALITIES' OPTICAL_DUPLICATE_PIXEL_DISTANCE='100' VALIDATION_STRINGENCY='LENIENT' QUIET='true' VERBOSITY='ERROR'",
+        "CREATE_INDEX='true' USE_JDK_DEFLATER='true' USE_JDK_INFLATER='true' REMOVE_DUPLICATES='true' ASSUME_SORTED='true' DUPLICATE_SCORING_STRATEGY='SUM_OF_BASE_QUALITIES' OPTICAL_DUPLICATE_PIXEL_DISTANCE='100' VALIDATION_STRINGENCY='LENIENT' QUIET='true' VERBOSITY='ERROR'",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -238,19 +238,40 @@ rule mark_duplicates:
         "0.68.0/bio/picard/markduplicates"
 
 
+rule indelqual1:
+    """
+    Insert indel qualities.
+    """
+    input:
+        ref=REF_GENOME,
+        bam=rules.mark_duplicates.output.bam,
+    output:
+        "results/{sample}/indelqual1.bam",
+    log:
+        "results/{sample}/log/indelqual1.log",
+    params:
+        extra="--verbose",
+    resources:
+        runtime=120,
+        mem_mb=4000,
+    threads: 4
+    wrapper:
+        f"{WRAPPER_PREFIX}/v0.6/lofreq/indelqual"
+
+
 rule lofreq1:
     """
     Variant calling.
     """
     input:
         ref=REF_GENOME,
-        bam=rules.mark_duplicates.output.bam,
+        bam=rules.indelqual1.output[0],
     output:
         "results/{sample}/lofreq1.vcf",
     log:
         "results/{sample}/log/lofreq1.log",
     params:
-        extra="",
+        extra="--call-indels",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -264,7 +285,7 @@ rule indexfeaturefile:
     Index vcf vile.
     """
     input:
-        "results/{sample}/lofreq1.vcf",
+        rules.lofreq1.output[0],
     output:
         "results/{sample}/lofreq1.vcf.idx",
     log:
@@ -282,9 +303,9 @@ rule indexfeaturefile:
 rule gatk_baserecalibrator:
     input:
         ref=REF_GENOME,
-        bam=rules.mark_duplicates.output.bam,
+        bam=rules.indelqual1.output[0],
         dict=REF_GENOME_DICT,
-        known="results/{sample}/lofreq1.vcf",
+        known=rules.lofreq1.output[0],
         feature_index=rules.indexfeaturefile.output[0],
     output:
         recal_table="results/{sample}/recal_table.grp",
@@ -303,7 +324,7 @@ rule applybqsr:
     """
     input:
         ref=REF_GENOME,
-        bam=rules.mark_duplicates.output.bam,
+        bam=rules.indelqual1.output[0],
         recal_table="results/{sample}/recal_table.grp",
     output:
         bam="results/{sample}/recalibrated.bam",
@@ -332,7 +353,7 @@ rule indelqual:
     resources:
         runtime=120,
         mem_mb=4000,
-    threads: 8
+    threads: 4
     wrapper:
         f"{WRAPPER_PREFIX}/v0.6/lofreq/indelqual"
 
@@ -353,7 +374,7 @@ rule lofreq:
     resources:
         runtime=120,
         mem_mb=4000,
-    threads: 1
+    threads: 4
     wrapper:
         f"{WRAPPER_PREFIX}/v0.6/lofreq/call"
 
@@ -363,7 +384,7 @@ rule pileup:
     Calculate coverage.
     """
     input:
-        input=rules.applybqsr.output.bam,
+        input=rules.refgenome.output.out,
         ref=REF_GENOME,
     output:
         out="results/{sample}/covstats.txt",
@@ -384,13 +405,13 @@ rule vcffilter:
     Filter variants based on allele frequency.
     """
     input:
-        "results/{sample}/lofreq.vcf",
+        rules.lofreq.output[0],
     output:
         "results/{sample}/filtered.vcf",
     log:
         "results/{sample}/log/vcffilter.log",
     params:
-        extra="-f 'AF > 0.9'",
+        extra="-f 'AF > 0.9 & QUAL > 20'",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -538,7 +559,7 @@ rule fastq_screen:
     Estimate reads mapping to host and bacteria (rRNA).
     """
     input:
-        rules.correct2.output.out,
+        rules.reformat.output.out,
     output:
         txt="results/{sample}/{run}/fastq_screen.txt",
         html="results/{sample}/{run}/fastq_screen.html",
@@ -576,7 +597,7 @@ rule bamstats:
     Host genome mapping stats.
     """
     input:
-        rules.applybqsr.output.bam,
+        rules.refgenome.output.out,
     output:
         "results/{sample}/bamstats.txt",
     resources:
