@@ -494,7 +494,7 @@ rule snpeff:
     Functional annotation of variants.
     """
     input:
-        calls="results/{sample}/filtered.vcf",
+        calls="results/{sample}/lofreq.vcf",
         db="resources/refseq/NC045512",
     output:
         calls="results/{sample}/snpeff.vcf", # annotated calls (vcf, bcf, or vcf.gz)
