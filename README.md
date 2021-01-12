@@ -1,4 +1,4 @@
-![Samples](https://img.shields.io/badge/KoroGeno--EST-318%20seqs-blue)![CI](https://github.com/avilab/sarscov2-variation/workflows/CI/badge.svg)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/avilab/sarscov2-variation)![CI](https://github.com/avilab/sarscov2-variation/workflows/CI/badge.svg)
 
 # sarscov2-variation
 
