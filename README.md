@@ -1,4 +1,4 @@
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/avilab/sarscov2-variation)![CI](https://github.com/avilab/sarscov2-variation/workflows/CI/badge.svg)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/avilab/sarscov2-variation)[![Snakemake](https://img.shields.io/badge/snakemake-≥5.27.4-brightgreen.svg?style=flat)](https://snakemake.readthedocs.io)![CI](https://github.com/avilab/sarscov2-variation/workflows/CI/badge.svg)
 
 # sarscov2-variation
 
