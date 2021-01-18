@@ -18,7 +18,7 @@ validate(config, "schemas/config.schema.yaml")
 
 
 # Load runs and groups
-df = pd.read_csv(config["samples"], sep=None, dtype=str).set_index(
+df = pd.read_csv(config["samples"], sep=None, dtype=str, engine="python").set_index(
     ["sample", "run"], drop=False
 )
 validate(df, "schemas/samples.schema.yaml")
