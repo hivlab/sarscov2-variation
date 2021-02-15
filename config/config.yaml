@@ -1,7 +1,6 @@
 # Set seed for replicability
 seed: 11
 
-
 # Path or URL to sample sheet (TSV format, required columns: sample, fq1, fq2, frac)
 # sample - unique sample name
 # run - sequencing run
@@ -10,6 +9,9 @@ samples: config/samples.csv
 country: Estonia
 hexdig: False
 
+metadata: 
+  file: config/sample_metadata.csv
+  collection_date: collection_date
 
 # Ref genome
 refgenome: "resources/refseq/NC045512/sequences.fa"
