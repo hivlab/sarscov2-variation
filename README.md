@@ -23,7 +23,7 @@ Main outputs:
 - Follow instructions to install snakemake: <https://snakemake.readthedocs.io/en/stable/getting_started/installation.html>
 
 
-## Clone workflow
+## Getting workflow
 
 - Create a new working directory e.g. `covidseq` and clone this repository to working directory.
 
@@ -33,7 +33,9 @@ git clone https://github.com/avilab/sarscov2-variation.git covidseq
 cd covidseq
 ```
 
-- Create/Edit `config.yaml` and `samples.tsv` files. Please see test directory for examples. 
+## Creating samples table
+
+- Create/Edit `config/config.yaml` and `config/samples.tsv` files (`config/samples.csv` or any other common delimiter is also compatible). Please see test directory for examples. 
 
 Example of `samples.tsv` file with paired reads in two separate files:
 
@@ -51,6 +53,22 @@ sample | run | fq | platform
 A  | A1 | /path/to/A1.fq | ILLUMINA
 A  | A2 | /path/to/A2.fq | ILLUMINA
 B  | B1 | /path/to/B1.fq | ILLUMINA
+
+
+## Creating samples metadata table
+(Optional) To include sample collection date/year to FASTA consensus sequence headers, prepare `config/sample_metadata.csv` file (see below) and add metadata file path to `config/config.yaml`:
+
+```yaml
+metadata: 
+  file: config/sample_metadata.csv
+  collection_date: collection_date
+```
+
+sample | collection_date 
+-------|-----
+A  | 2021-02-01
+A  | 2021-02-01
+B  | 2020
 
 
 ## Download databases
