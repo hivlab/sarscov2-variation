@@ -9,6 +9,11 @@ samples: config/samples.tsv
 country: Estonia
 hexdig: False
 
+# Sample metadata
+metadata: 
+  file: 
+  collection_date: 
+
 # Ref genome
 refgenome: "resources/refseq/NC045512/sequences.fa"
 refgenome_dict: "resources/refseq/NC045512/sequences.dict"
