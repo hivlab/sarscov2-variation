@@ -456,7 +456,7 @@ rule genome_consensus:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        f"{WRAPPER_PREFIX}/master/genome-consensus"
+        f"{WRAPPER_PREFIX}/v0.7.2/genome-consensus"
 
 
 rule rename:
@@ -524,7 +524,7 @@ rule snpeff:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        f"{WRAPPER_PREFIX}/master/snpeff" #"0.68.0/bio/snpeff/annotate"
+        f"{WRAPPER_PREFIX}/v0.7.2/snpeff"
 
 
 rule snpsift:
