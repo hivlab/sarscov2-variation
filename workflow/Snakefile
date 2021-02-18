@@ -455,7 +455,7 @@ rule genome_consensus:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        f"{WRAPPER_PREFIX}/master/genome-consensus"
+        f"{WRAPPER_PREFIX}/v0.7.2/genome-consensus"
 
 
 rule rename:
@@ -509,7 +509,7 @@ rule snpeff:
     """
     input:
         calls="results/{sample}/lofreq.vcf",
-        db="resources/refseq/NC045512",
+        db="resources/refseq/NC_045512.2",
     output:
         calls="results/{sample}/snpeff.vcf", # annotated calls (vcf, bcf, or vcf.gz)
         stats="results/{sample}/snpeff.html", # summary statistics (in HTML), optional
@@ -518,12 +518,12 @@ rule snpeff:
     log:
         "results/{sample}/log/snpeff.log",
     params:
-        extra="-configOption NC045512.genome=NC045512",
+        extra="-configOption 'NC_045512.2'.genome='NC_045512.2' -configOption 'NC_045512.2'.codonTable='Standard' -formatEff -classic -no-downstream -no-intergenic -no-intron -no-upstream -no-utr",
     resources:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        "0.68.0/bio/snpeff/annotate"
+        f"{WRAPPER_PREFIX}/v0.7.2/snpeff"
 
 
 rule snpsift:
@@ -536,7 +536,7 @@ rule snpsift:
         "results/{sample}/snpsift.txt",
     params:
         extra="-s ',' -e '.'",
-        fieldnames="CHROM POS REF ALT DP AF SB DP4 EFF[*].IMPACT EFF[*].FUNCLASS EFF[*].EFFECT EFF[*].GENE EFF[*].CODON",
+        fieldnames="CHROM POS REF ALT DP AF SB DP4 EFF[*].AA EFF[*].IMPACT EFF[*].FUNCLASS EFF[*].EFFECT EFF[*].GENE EFF[*].CODON",
     wrapper:
         f"{WRAPPER_PREFIX}/v0.2/snpsift"
 
