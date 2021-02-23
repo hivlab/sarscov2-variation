@@ -5,26 +5,11 @@ properties:
     type: integer
     default: 11
     description: an integer, seed for fastq sample
-  samples:
+  platform:
     type: string
-    description: path to samples.tsv file
-  refgenome:
-    type: string
-    description: path to sars-cov-2 indexed genome
-  refgenome_name:
-    type: string
-    description: name/description of the sars-cov-2 reference genome sequence
-  metadata:
-    file: 
-      type: string
-      default: None
-      description: path to sample metadata file
-    collection_date:
-      type: string
-      default: collection_date
-      description: variable name 
-
-required:
-  - samples
-  - refgenome
-  - refgenome_name
+    description: sequencing platform
+    default: ILLUMINA
+  hexdig:
+    type: boolean
+    description: should the sample ids presented as hexdigs
+    default: False

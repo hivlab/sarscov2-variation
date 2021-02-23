@@ -1,22 +1,19 @@
 $schema: "http://json-schema.org/draft-07/schema#"
 description: an entry in the sample sheet
 properties:
-  sample:
+  sample_name:
     type: string
     description:  sample identifier
   run:
     type: string
     description: sequencing run name/identifier
-  fq:
+  read1:
     type: string
-    description: path to SE or interleaved fastq(.gz) file 
-  fq1:
-    type: string
-    description: path to PE fastq(.gz) pair 1 file
-  fq2:
+    description: path to SE, PE interleaved fastq(.gz) or PE fastq(.gz) pair 1 file
+  read2:
     type: string
     description: path to PE fastq(.gz) pair 2 file
-
 required:
   - run
-  - sample
+  - sample_name
+  - read1

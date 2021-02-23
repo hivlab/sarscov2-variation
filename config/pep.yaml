@@ -1,0 +1,11 @@
+pep_version: 2.0.0
+sample_table: samples.csv
+sample_modifiers:
+  append:
+    read1_path: r1
+    read2_path: r2
+  derive:
+    attributes: [read1_path, read2_path]
+    sources:
+      r1: reads/{read1}
+      r2: reads/{read2}

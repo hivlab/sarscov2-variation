@@ -1,0 +1,28 @@
+description: A PEP for ATAC-seq samples for the PEPATAC pipeline.
+imports:
+  - http://schema.databio.org/pep/2.0.0.yaml
+properties:
+  samples:
+    type: array
+    items:
+      type: object
+      properties:
+        sample_name: 
+          type: string
+          description: "Name of the sample"
+        run: 
+          type: string
+          description: "Name of the sequencing run"
+        read1_path:
+          type: string
+          description: "Fastq file for read 1"
+        read2_path:
+          type: string
+          description: "Fastq file for read 2 (for paired-end experiments)"
+      required_files:
+        - read1_path
+      files:
+        - read1_path
+        - read2_path
+required:
+  - samples
