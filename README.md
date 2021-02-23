@@ -54,23 +54,6 @@ A  | A1 | /path/to/A1.fq | ILLUMINA
 A  | A2 | /path/to/A2.fq | ILLUMINA
 B  | B1 | /path/to/B1.fq | ILLUMINA
 
-
-## Creating samples metadata table
-(Optional) To include sample collection date/year to FASTA consensus sequence headers, prepare `config/sample_metadata.csv` file (see below) and add metadata file path to `config/config.yaml`:
-
-```yaml
-metadata: 
-  file: config/sample_metadata.csv
-  collection_date: collection_date
-```
-
-sample | collection_date 
--------|-----
-A  | 2021-02-01
-A  | 2021-02-01
-B  | 2020
-
-
 ## Download databases
 (Optional) Human and rRNA sequence databases for FastQ Screen. In absence of databases fastq screen rule will be skipped.    
 
