@@ -8,23 +8,7 @@ properties:
   samples:
     type: string
     description: path to samples.tsv file
-  refgenome:
-    type: string
-    description: path to sars-cov-2 indexed genome
-  refgenome_name:
-    type: string
-    description: name/description of the sars-cov-2 reference genome sequence
-  metadata:
-    file: 
-      type: string
-      default: None
-      description: path to sample metadata file
-    collection_date:
-      type: string
-      default: collection_date
-      description: variable name 
 
 required:
   - samples
-  - refgenome
-  - refgenome_name
+
