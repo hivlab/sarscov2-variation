@@ -430,7 +430,7 @@ rule genome_consensus:
     log:
         "results/{sample}/log/genome_consensus.log",
     params:
-        mask=1,
+        mask=5,
         extra=(
             lambda wildcards, resources: f"-Xmx{resources.mem_mb}m slow k=12 maxlen=600"
         ), # parameters passed to bbmap
