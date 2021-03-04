@@ -121,7 +121,7 @@ rule correct1:
     input:
         input=rules.filter.output.out,
     output:
-        outtemp("results/{sample}/{run}/ecco.fq"),
+        out=temp("results/{sample}/{run}/ecco.fq"),
     params:
         extra="ecco mix vstrict ordered",
     log:
