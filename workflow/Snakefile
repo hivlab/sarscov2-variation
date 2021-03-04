@@ -67,7 +67,7 @@ rule reformat:
     input:
         unpack(get_fastq),
     output:
-        out="results/{sample}/{run}/interleaved.fq",
+        out=temp("results/{sample}/{run}/interleaved.fq"),
     log:
         "results/{sample}/{run}/log/reformat.log",
     params:
@@ -86,7 +86,7 @@ rule trim:
     input:
         input=rules.reformat.output.out,
     output:
-        out="results/{sample}/{run}/trimmed.fq",
+        out=temp("results/{sample}/{run}/trimmed.fq"),
     log:
         "results/{sample}/{run}/log/trim.log",
     params:
@@ -105,7 +105,7 @@ rule filter:
     input:
         input=rules.trim.output.out,
     output:
-        out="results/{sample}/{run}/filtered.fq",
+        out=temp("results/{sample}/{run}/filtered.fq"),
     log:
         "results/{sample}/{run}/log/filter.log",
     params:
@@ -121,7 +121,7 @@ rule correct1:
     input:
         input=rules.filter.output.out,
     output:
-        out="results/{sample}/{run}/ecco.fq",
+        outtemp("results/{sample}/{run}/ecco.fq"),
     params:
         extra="ecco mix vstrict ordered",
     log:
@@ -182,7 +182,7 @@ rule samtools_fixmate:
     input:
         rules.refgenome.output.out,
     output:
-        "results/{sample}/fixmate.bam",
+        temp("results/{sample}/fixmate.bam"),
     params:
         extra="",
     resources:
@@ -215,7 +215,7 @@ rule mark_duplicates:
     input:
         rules.samtools_sort.output[0],
     output:
-        bam="results/{sample}/dedup.bam",
+        bam=temp("results/{sample}/dedup.bam"),
         metrics="results/{sample}/dedup.txt",
     log:
         "results/{sample}/log/dedup.log",
@@ -237,7 +237,7 @@ rule indelqual1:
         ref="resources/refseq/NC_045512.2/sequences.fa",
         bam=rules.mark_duplicates.output.bam,
     output:
-        "results/{sample}/indelqual1.bam",
+        temp("results/{sample}/indelqual1.bam"),
     log:
         "results/{sample}/log/indelqual1.log",
     params:
@@ -258,7 +258,7 @@ rule lofreq1:
         ref="resources/refseq/NC_045512.2/sequences.fa",
         bam=rules.indelqual1.output[0],
     output:
-        "results/{sample}/lofreq1.vcf",
+        temp("results/{sample}/lofreq1.vcf"),
     log:
         "results/{sample}/log/lofreq1.log",
     params:
@@ -278,7 +278,7 @@ rule indexfeaturefile:
     input:
         rules.lofreq1.output[0],
     output:
-        "results/{sample}/lofreq1.vcf.idx",
+        temp("results/{sample}/lofreq1.vcf.idx"),
     log:
         "results/{sample}/log/indexfeaturefile.log",
     params:
@@ -299,7 +299,7 @@ rule gatk_baserecalibrator:
         known=rules.lofreq1.output[0],
         feature_index=rules.indexfeaturefile.output[0],
     output:
-        recal_table="results/{sample}/recal_table.grp",
+        recal_table=temp("results/{sample}/recal_table.grp"),
     log:
         "results/{sample}/log/baserecalibrator.log",
     resources:
@@ -318,7 +318,7 @@ rule applybqsr:
         bam=rules.indelqual1.output[0],
         recal_table="results/{sample}/recal_table.grp",
     output:
-        bam="results/{sample}/recalibrated.bam",
+        bam=temp("results/{sample}/recalibrated.bam"),
     log:
         "results/{sample}/log/applybqsr.log",
     resources:
@@ -336,7 +336,7 @@ rule indelqual:
         ref="resources/refseq/NC_045512.2/sequences.fa",
         bam=rules.applybqsr.output.bam,
     output:
-        "results/{sample}/indelqual.bam",
+        temp("results/{sample}/indelqual.bam"),
     log:
         "results/{sample}/log/indelqual.log",
     params:
@@ -422,11 +422,11 @@ rule genome_consensus:
         ),
         vcf="results/{sample}/filtered.vcf",
     output:
-        vcfgz="results/{sample}/filtered.vcf.gz",
-        consensus="results/{sample}/consensus_badname.fa",
-        sam="results/{sample}/consensus.sam",
-        consensus_masked="results/{sample}/consensus_masked_badname.fa",
-        bed="results/{sample}/merged.bed",
+        vcfgz=temp("results/{sample}/filtered.vcf.gz"),
+        consensus=temp("results/{sample}/consensus_badname.fa"),
+        sam=temp("results/{sample}/consensus.sam"),
+        consensus_masked=temp("results/{sample}/consensus_masked_badname.fa"),
+        bed=temp("results/{sample}/merged.bed"),
     log:
         "results/{sample}/log/genome_consensus.log",
     params:
