@@ -265,7 +265,7 @@ rule lofreq1:
         extra="--call-indels",
     resources:
         runtime=120,
-        mem_mb=lambda wildcards, input: 4000 + 40 * input.mem_mb,
+        mem_mb=lambda wildcards, input: 4000 + 40 * input.size_mb,
     threads: 4
     wrapper:
         f"{WRAPPER_PREFIX}/v0.6/lofreq/call"
@@ -304,7 +304,7 @@ rule gatk_baserecalibrator:
         "results/{sample}/log/baserecalibrator.log",
     resources:
         runtime=120,
-        mem_mb=lambda wildcards, input: 4000 + 40 * input.mem_mb,
+        mem_mb=lambda wildcards, input: 4000 + 40 * input.size_mb,
     wrapper:
         "0.68.0/bio/gatk/baserecalibrator"
 
@@ -323,7 +323,7 @@ rule applybqsr:
         "results/{sample}/log/applybqsr.log",
     resources:
         runtime=120,
-        mem_mb=lambda wildcards, input: 4000 + 40 * input.mem_mb,
+        mem_mb=lambda wildcards, input: 4000 + 40 * input.size_mb,
     wrapper:
         "0.68.0/bio/gatk/applybqsr"
 
@@ -343,7 +343,7 @@ rule indelqual:
         extra="--verbose",
     resources:
         runtime=120,
-        mem_mb=lambda wildcards, input: 4000 + 40 * input.mem_mb,
+        mem_mb=lambda wildcards, input: 4000 + 40 * input.size_mb,
     threads: 4
     wrapper:
         f"{WRAPPER_PREFIX}/v0.6/lofreq/indelqual"
@@ -364,7 +364,7 @@ rule lofreq:
         extra="--call-indels",
     resources:
         runtime=120,
-        mem_mb=lambda wildcards, input: 4000 + 40 * input.mem_mb,
+        mem_mb=lambda wildcards, input: 4000 + 40 * input.size_mb,
     threads: 4
     wrapper:
         f"{WRAPPER_PREFIX}/v0.6/lofreq/call"
