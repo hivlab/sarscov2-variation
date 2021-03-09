@@ -90,7 +90,7 @@ rule trim:
     log:
         "results/{sample}/{run}/log/trim.log",
     params:
-        extra="maq=10 qtrim=r trimq=10 ktrim=r k=23 mink=11 hdist=1 tbo tpe ref=adapters ftm=5 ordered",
+        extra="minlen=50 maq=10 qtrim=r trimq=10 ktrim=r k=23 mink=11 hdist=1 tbo tpe ref=adapters ftm=5 ordered",
     resources:
         runtime=120,
         mem_mb=4000,
