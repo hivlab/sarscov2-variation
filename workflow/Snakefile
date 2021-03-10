@@ -632,4 +632,4 @@ rule multiqc:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/multiqc"
+        f"{WRAPPER_PREFIX}/v0.7.3/multiqc"
