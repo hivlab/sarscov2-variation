@@ -44,7 +44,7 @@ report: "report/workflow.rst"
 
 rule all:
     input:
-        "results/consensus_masked_hd.fa" if config["hexdig"] else "results/consensus_masked.fa",
+        "results/consensus_hd.fa" if config["hexdig"] else "results/consensus.fa",
         "results/snpsift.csv",
         "results/multiqc.html",
         expand("results/{sample}/basecov.txt", sample=list(samples.keys())),
@@ -402,7 +402,7 @@ rule vcffilter:
     log:
         "results/{sample}/log/vcffilter.log",
     params:
-        extra="-f 'AF > 0.8 & QUAL > 20'",
+        extra="-f 'AF > 0.7 & QUAL > 20'",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -416,29 +416,22 @@ rule genome_consensus:
     mask positions with low coverage.
     """
     input:
-        ref="resources/refseq/NC_045512.2/sequences.fa",
-        reads=lambda wildcards: expand(
-            "results/{{sample}}/{run}/ecct.fq", run=samples[wildcards.sample],
-        ),
+        alignment=rules.refgenome.output.out,
         vcf="results/{sample}/filtered.vcf",
+        ref="resources/refseq/NC_045512.2/sequences.fa",
     output:
-        vcfgz=temp("results/{sample}/filtered.vcf.gz"),
-        consensus=temp("results/{sample}/consensus_badname.fa"),
-        sam=temp("results/{sample}/consensus.sam"),
-        consensus_masked=temp("results/{sample}/consensus_masked_badname.fa"),
-        bed=temp("results/{sample}/merged.bed"),
+        consensus=temp("results/{sample}/consensus.fa"),
+    shadow: "shallow"
     log:
         "results/{sample}/log/genome_consensus.log",
     params:
         mask=5,
-        extra=(
-            lambda wildcards, resources: f"-Xmx{resources.mem_mb}m slow k=12 maxlen=600"
-        ), # parameters passed to bbmap
+        mapping_quality=20,
     resources:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.7.2/genome-consensus"
+        f"{WRAPPER_PREFIX}/v0.7.4/genome-consensus"
 
 
 rule rename:
@@ -446,9 +439,9 @@ rule rename:
     Rename fasta sequences.
     """
     input:
-        rules.genome_consensus.output.consensus_masked,
+        rules.genome_consensus.output.consensus,
     output:
-        "results/{sample}/consensus_masked_hd.fa" if config["hexdig"] else "results/{sample}/consensus_masked.fa",
+        "results/{sample}/consensus_renamed_hd.fa" if config["hexdig"] else "results/{sample}/consensus_renamed.fa",
     params:
         sample=lambda wildcards: wildcards.sample,
         stub=f"{{}}",
@@ -466,13 +459,13 @@ rule merge_renamed:
     """
     input:
         expand(
-            "results/{sample}/consensus_masked_hd.fa"
+            "results/{sample}/consensus_renamed_hd.fa"
             if config["hexdig"]
-            else "results/{sample}/consensus_masked.fa",
+            else "results/{sample}/consensus_renamed.fa",
             sample=samples.keys(),
         ),
     output:
-        "results/consensus_masked_hd.fa" if config["hexdig"] else "results/consensus_masked.fa",
+        "results/consensus_hd.fa" if config["hexdig"] else "results/consensus.fa",
     resources:
         runtime=120,
         mem_mb=2000,
