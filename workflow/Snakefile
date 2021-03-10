@@ -402,7 +402,7 @@ rule vcffilter:
     log:
         "results/{sample}/log/vcffilter.log",
     params:
-        extra="-f 'AF > 0.9 & QUAL > 20'",
+        extra="-f 'AF > 0.8 & QUAL > 20'",
     resources:
         runtime=120,
         mem_mb=4000,
