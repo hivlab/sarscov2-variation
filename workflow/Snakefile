@@ -420,7 +420,7 @@ rule genome_consensus:
         vcf="results/{sample}/filtered.vcf",
         ref="resources/refseq/NC_045512.2/sequences.fa",
     output:
-        consensus=temp("results/{sample}/consensus.fa"),
+        temp("results/{sample}/consensus.fa"),
     shadow: "shallow"
     log:
         "results/{sample}/log/genome_consensus.log",
@@ -431,7 +431,7 @@ rule genome_consensus:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.7.4/genome-consensus"
+        f"{WRAPPER_PREFIX}/v0.7.5/genome-consensus"
 
 
 rule rename:
@@ -439,7 +439,7 @@ rule rename:
     Rename fasta sequences.
     """
     input:
-        rules.genome_consensus.output.consensus,
+        rules.genome_consensus.output[0],
     output:
         "results/{sample}/consensus_renamed_hd.fa" if config["hexdig"] else "results/{sample}/consensus_renamed.fa",
     params:
