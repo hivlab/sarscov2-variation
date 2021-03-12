@@ -44,10 +44,9 @@ report: "report/workflow.rst"
 
 rule all:
     input:
-        "results/consensus_hd.fa" if config["hexdig"] else "results/consensus.fa",
         "results/snpsift.csv",
         "results/multiqc.html",
-        expand("results/{sample}/basecov.txt", sample=list(samples.keys())),
+        expand(["results/{sample}/basecov.txt", "results/{sample}/consensus.fa"], sample=list(samples.keys())),
 
 
 def get_fastq(wildcards):
@@ -420,57 +419,19 @@ rule genome_consensus:
         vcf="results/{sample}/filtered.vcf",
         ref="resources/refseq/NC_045512.2/sequences.fa",
     output:
-        temp("results/{sample}/consensus.fa"),
+        "results/{sample}/consensus.fa",
     shadow: "shallow"
     log:
         "results/{sample}/log/genome_consensus.log",
     params:
         mask=5,
         mapping_quality=20,
+        name = lambda wildcards: wildcards.sample
     resources:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.7.5/genome-consensus"
-
-
-rule rename:
-    """
-    Rename fasta sequences.
-    """
-    input:
-        rules.genome_consensus.output[0],
-    output:
-        "results/{sample}/consensus_renamed_hd.fa" if config["hexdig"] else "results/{sample}/consensus_renamed.fa",
-    params:
-        sample=lambda wildcards: wildcards.sample,
-        stub=f"{{}}",
-        hexdigest=config["hexdig"],
-    resources:
-        runtime=120,
-        mem_mb=2000,
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.2/sequences/rename_fasta"
-
-
-rule merge_renamed:
-    """
-    Merge fasta files.
-    """
-    input:
-        expand(
-            "results/{sample}/consensus_renamed_hd.fa"
-            if config["hexdig"]
-            else "results/{sample}/consensus_renamed.fa",
-            sample=samples.keys(),
-        ),
-    output:
-        "results/consensus_hd.fa" if config["hexdig"] else "results/consensus.fa",
-    resources:
-        runtime=120,
-        mem_mb=2000,
-    shell:
-        "cat {input} > {output}"
+        f"{WRAPPER_PREFIX}/v0.7.6/genome-consensus"
 
 
 rule snpeff:
