@@ -580,9 +580,15 @@ rule multiqc:
                 ]
             ),
         ),
-        expand(
+        lambda wildcards: expand(
             ["results/{sample}/snpeff.csv", "results/{sample}/bamstats.txt"],
-            sample=list(set(pep.sample_table["sample_name"])),
+            sample=set(
+                list(
+                    pep.sample_table.loc[
+                        pep.sample_table["batch"] == wildcards.batch, "sample_name"
+                    ]
+                )
+            ),
         ),
     output:
         report(
@@ -598,4 +604,4 @@ rule multiqc:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.7.3/multiqc"
+        "0.72.0/bio/multiqc"
