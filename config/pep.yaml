@@ -1,0 +1,11 @@
+pep_version: 2.0.0
+sample_table: "samples.csv"
+sample_modifiers:
+  append:
+    fq1: r1
+    fq2: r2
+  derive:
+    attributes: [fq1, fq2]
+    sources:
+      r1: "reads/{read1}"
+      r2: "reads/{read2}"

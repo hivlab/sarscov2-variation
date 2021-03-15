@@ -31,23 +31,59 @@ cd covidseq
 
 ## Creating samples table
 
-- Create/Edit `config/config.yaml` and `config/samples.tsv` files (`config/samples.csv` or any other common delimiter is also compatible). Please see test directory for examples.
+Sample configuration uses now [portable encapsulated project (PEP) definition](http://pep.databio.org/en/latest/specification/).
 
-Example of `samples.tsv` file with paired reads in two separate files:
+- Create/Edit `config/pep.yaml` and `config/samples.csv` files. Please see test directory for examples.
 
-sample | run | fq1 | fq2 | platform
--------|-----|-----|-----|--------
-A  | A1 | /path/to/A1_R1.fq | /path/to/A1_R2.fq | ILLUMINA
-A  | A2 | /path/to/A2_R1.fq | /path/to/A2_R2.fq | ILLUMINA
-B  | B1 | /path/to/B1_R1.fq | /path/to/B1_R2.fq | ILLUMINA
+Example of `samples.csv` file with paired reads in two separate files:
+
+batch | sample_name | run | read1 | read2
+-----|-----|-----|-----|-----
+1 | A  | A1 | A1_R1.fq | A1_R2.fq
+1 | A  | A2 | A2_R1.fq | A2_R2.fq
+2 | B  | B1 | B1_R1.fq | B1_R2.fq
 
 In case of **interleaved** fastq files, following `samples.tsv` can be used:
 
-sample | run | fq | platform
--------|-----|----|---------
-A  | A1 | /path/to/A1.fq | ILLUMINA
-A  | A2 | /path/to/A2.fq | ILLUMINA
-B  | B1 | /path/to/B1.fq | ILLUMINA
+batch | sample_name | run | read1
+------|-------------|-----|----
+1 | A  | A1 | A1.fq
+1 | A  | A2 | A2.fq
+2 | B  | B1 | B1.fq
+
+
+- Update `config/pep.yaml`: "read1" (and "read2", "batch") in sources definition matches column(s) in your samples.csv file, if you have other column names, adjust this variable accordingly in `pep.yaml`. Please see [PEP specification](http://pep.databio.org/en/latest/specification/) for further options to customise pep config file to your needs. 
+
+
+```yaml
+pep_version: 2.0.0
+sample_table: "samples.csv" OR "samples.tsv"
+sample_modifiers:
+  append:
+    fq1: r1
+    fq2: r2
+  derive:
+    attributes: [fq1, fq2]
+    sources:
+      r1: "/path/to/reads/{batch}/{read1}"
+      r2: "/path/to/reads/{batch}/{read2}"
+```
+
+In case of interleaved reads:
+
+```yaml
+pep_version: 2.0.0
+sample_table: "samples.csv" OR "samples.tsv"
+sample_modifiers:
+  append:
+    fq: r1
+  derive:
+    attributes: [fq]
+    sources:
+      r1: "/path/to/reads/{batch}/{read1}"
+```
+
+
 
 ## Download databases
 

@@ -5,6 +5,6 @@
 *.DS_Store
 .vscode
 *html
-reads/
-results/
-.tests/integration/results/
+*reads
+*results
+*logs

@@ -11,24 +11,13 @@ from datetime import datetime
 
 
 # Load configuration file with sample and path info
-configfile: "config/config.yaml"
+pepfile: "config/pep.yaml"
 
 
-validate(config, "schemas/config.schema.yaml")
+validate(pep.sample_table, "schemas/samples.schema.yaml")
 
 
-# Load runs and groups
-df = pd.read_csv(config["samples"], sep=None, dtype=str, engine="python").set_index(
-    ["sample", "run"], drop=False
-)
-validate(df, "schemas/samples.schema.yaml")
-samples = df.groupby(level=0).apply(lambda df: df.xs(df.name)["run"].tolist()).to_dict()
-SAMPLE = [sample for sample, run in df.index.tolist()]
-RUN = [run for sample, run in df.index.tolist()]
 PLATFORM = "ILLUMINA"
-
-
-# Databases
 HOST_GENOME = os.getenv("REF_GENOME_HUMAN_MASKED")
 RRNA_DB = os.getenv("SILVA")
 
@@ -45,11 +34,15 @@ report: "report/workflow.rst"
 rule all:
     input:
         "results/snpsift.csv",
-        "results/multiqc.html",
-        expand(["results/{sample}/basecov.txt", "results/{sample}/consensus.fa"], sample=list(samples.keys())),
+        expand("results/multiqc_{batch}.html", batch=list(set(pep.sample_table.batch))),
+        expand(
+            ["results/{sample}/basecov.txt", "results/{sample}/consensus.fa"],
+            sample=list(set(pep.sample_table.sample_name)),
+        ),
 
 
 def get_fastq(wildcards):
+    df = pep.sample_table.set_index(["sample_name", "run"])
     fq_cols = [col for col in df.columns if "fq" in col]
     fqs = df.loc[(wildcards.sample, wildcards.run), fq_cols].dropna()
     assert len(fq_cols) in [1, 2], "Enter one or two FASTQ file paths"
@@ -68,7 +61,7 @@ rule reformat:
     output:
         out=temp("results/{sample}/{run}/interleaved.fq"),
     log:
-        "results/{sample}/{run}/log/reformat.log",
+        "logs/{sample}/{run}/reformat.log",
     params:
         extra="",
     resources:
@@ -87,7 +80,7 @@ rule trim:
     output:
         out=temp("results/{sample}/{run}/trimmed.fq"),
     log:
-        "results/{sample}/{run}/log/trim.log",
+        "logs/{sample}/{run}/trim.log",
     params:
         extra="minlen=50 maq=20 qtrim=r trimq=10 ktrim=r k=23 mink=11 hdist=1 tbo tpe ref=adapters ftm=5 ordered",
     resources:
@@ -106,7 +99,7 @@ rule filter:
     output:
         out=temp("results/{sample}/{run}/filtered.fq"),
     log:
-        "results/{sample}/{run}/log/filter.log",
+        "logs/{sample}/{run}/filter.log",
     params:
         extra="k=31 ref=artifacts,phix ordered cardinality",
     resources:
@@ -124,7 +117,7 @@ rule correct1:
     params:
         extra="ecco mix vstrict ordered",
     log:
-        "results/{sample}/{run}/log/correct1.log",
+        "logs/{sample}/{run}/correct1.log",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -141,7 +134,7 @@ rule correct2:
     params:
         extra="mode=correct k=50 ordered",
     log:
-        "results/{sample}/{run}/log/correct2.log",
+        "logs/{sample}/{run}/correct2.log",
     resources:
         runtime=120,
         mem_mb=lambda wildcards, input: round(4000 + 6 * input.size_mb),
@@ -156,13 +149,18 @@ rule refgenome:
     """
     input:
         input=lambda wildcards: expand(
-            "results/{{sample}}/{run}/ecct.fq", run=samples[wildcards.sample]
+            "results/{{sample}}/{run}/ecct.fq",
+            run=list(
+                pep.sample_table.loc[
+                    pep.sample_table["sample_name"] == wildcards.sample, "run"
+                ]
+            ),
         ),
         ref="resources/refseq/NC_045512.2/sequences.fa",
     output:
         out="results/{sample}/refgenome.sam",
     log:
-        "results/{sample}/log/refgenome.log",
+        "logs/{sample}/refgenome.log",
     shadow:
         "minimal"
     params:
@@ -198,7 +196,7 @@ rule samtools_sort:
     output:
         temp("results/{sample}/sorted.bam"),
     log:
-        "results/{sample}/log/samtools_sort.log",
+        "logs/{sample}/samtools_sort.log",
     params:
         extra=lambda wildcards, resources: f"-m {resources.mem_mb}M",
         tmp_dir="/tmp/",
@@ -217,7 +215,7 @@ rule mark_duplicates:
         bam=temp("results/{sample}/dedup.bam"),
         metrics="results/{sample}/dedup.txt",
     log:
-        "results/{sample}/log/dedup.log",
+        "logs/{sample}/dedup.log",
     params:
         "CREATE_INDEX='true' USE_JDK_DEFLATER='true' USE_JDK_INFLATER='true' REMOVE_DUPLICATES='true' ASSUME_SORTED='true' DUPLICATE_SCORING_STRATEGY='SUM_OF_BASE_QUALITIES' OPTICAL_DUPLICATE_PIXEL_DISTANCE='100' VALIDATION_STRINGENCY='LENIENT' QUIET='true' VERBOSITY='ERROR'",
     resources:
@@ -238,7 +236,7 @@ rule indelqual1:
     output:
         temp("results/{sample}/indelqual1.bam"),
     log:
-        "results/{sample}/log/indelqual1.log",
+        "logs/{sample}/indelqual1.log",
     params:
         extra="--verbose",
     resources:
@@ -259,7 +257,7 @@ rule lofreq1:
     output:
         temp("results/{sample}/lofreq1.vcf"),
     log:
-        "results/{sample}/log/lofreq1.log",
+        "logs/{sample}/lofreq1.log",
     params:
         extra="--call-indels",
     resources:
@@ -279,7 +277,7 @@ rule indexfeaturefile:
     output:
         temp("results/{sample}/lofreq1.vcf.idx"),
     log:
-        "results/{sample}/log/indexfeaturefile.log",
+        "logs/{sample}/indexfeaturefile.log",
     params:
         extra="",
     resources:
@@ -300,7 +298,7 @@ rule gatk_baserecalibrator:
     output:
         recal_table=temp("results/{sample}/recal_table.grp"),
     log:
-        "results/{sample}/log/baserecalibrator.log",
+        "logs/{sample}/baserecalibrator.log",
     resources:
         runtime=120,
         mem_mb=lambda wildcards, input: 4000 + 40 * (input.bam.size // 1000000),
@@ -319,7 +317,7 @@ rule applybqsr:
     output:
         bam=temp("results/{sample}/recalibrated.bam"),
     log:
-        "results/{sample}/log/applybqsr.log",
+        "logs/{sample}/applybqsr.log",
     resources:
         runtime=120,
         mem_mb=lambda wildcards, input: 4000 + 40 * (input.bam.size // 1000000),
@@ -337,7 +335,7 @@ rule indelqual:
     output:
         temp("results/{sample}/indelqual.bam"),
     log:
-        "results/{sample}/log/indelqual.log",
+        "logs/{sample}/indelqual.log",
     params:
         extra="--verbose",
     resources:
@@ -358,7 +356,7 @@ rule lofreq:
     output:
         "results/{sample}/lofreq.vcf",
     log:
-        "results/{sample}/log/lofreq.log",
+        "logs/{sample}/lofreq.log",
     params:
         extra="--call-indels",
     resources:
@@ -380,7 +378,7 @@ rule pileup:
         out="results/{sample}/covstats.txt",
         basecov="results/{sample}/basecov.txt",
     log:
-        "results/{sample}/log/pileup.log",
+        "logs/{sample}/pileup.log",
     params:
         extra="concise",
     resources:
@@ -399,7 +397,7 @@ rule vcffilter:
     output:
         "results/{sample}/filtered.vcf",
     log:
-        "results/{sample}/log/vcffilter.log",
+        "logs/{sample}/vcffilter.log",
     params:
         extra="-f 'AF > 0.7 & QUAL > 20'",
     resources:
@@ -420,13 +418,14 @@ rule genome_consensus:
         ref="resources/refseq/NC_045512.2/sequences.fa",
     output:
         "results/{sample}/consensus.fa",
-    shadow: "shallow"
+    shadow:
+        "shallow"
     log:
-        "results/{sample}/log/genome_consensus.log",
+        "logs/{sample}/genome_consensus.log",
     params:
         mask=5,
         mapping_quality=20,
-        name = lambda wildcards: wildcards.sample
+        name=lambda wildcards: wildcards.sample,
     resources:
         runtime=120,
         mem_mb=4000,
@@ -447,7 +446,7 @@ rule snpeff:
         csvstats="results/{sample}/snpeff.csv", # summary statistics in CSV, optional
         genes="results/{sample}/snpeff.genes.txt",
     log:
-        "results/{sample}/log/snpeff.log",
+        "logs/{sample}/snpeff.log",
     params:
         extra="-configOption 'NC_045512.2'.genome='NC_045512.2' -configOption 'NC_045512.2'.codonTable='Standard' -formatEff -classic -no-downstream -no-intergenic -no-intron -no-upstream -no-utr",
     resources:
@@ -477,7 +476,10 @@ rule merge_tables:
     Merge variant tables.
     """
     input:
-        expand("results/{sample}/snpsift.txt", sample=samples.keys()),
+        expand(
+            "results/{sample}/snpsift.txt",
+            sample=list(set(pep.sample_table["sample_name"])),
+        ),
     output:
         "results/snpsift.csv",
     run:
@@ -509,7 +511,7 @@ rule fastq_screen:
         txt="results/{sample}/{run}/fastq_screen.txt",
         html="results/{sample}/{run}/fastq_screen.html",
     log:
-        "results/{sample}/{run}/log/fastq_screen.log",
+        "logs/{sample}/{run}/fastq_screen.log",
     params:
         fastq_screen_config={"database": fastq_screen_db},
         subset=100000,
@@ -530,6 +532,8 @@ rule fastqc:
     output:
         html="results/{sample}/{run}/fastqc.html",
         zip="results/{sample}/{run}/fastqc.zip",
+    log:
+        "logs/{sample}/{run}/fastqs.log",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -557,7 +561,7 @@ rule multiqc:
     Generate comprehensive report.
     """
     input:
-        expand(
+        lambda wildcards: expand(
             [
                 "results/{sample}/{run}/fastq_screen.txt",
                 "results/{sample}/{run}/fastqc.zip",
@@ -565,25 +569,39 @@ rule multiqc:
             if fastq_screen_db
             else "results/{sample}/{run}/fastqc.zip",
             zip,
-            sample=SAMPLE,
-            run=RUN,
+            sample=list(
+                pep.sample_table.loc[
+                    pep.sample_table["batch"] == wildcards.batch, "sample_name"
+                ]
+            ),
+            run=list(
+                pep.sample_table.loc[
+                    pep.sample_table["batch"] == wildcards.batch, "run"
+                ]
+            ),
         ),
-        expand(
+        lambda wildcards: expand(
             ["results/{sample}/snpeff.csv", "results/{sample}/bamstats.txt"],
-            sample=samples.keys(),
+            sample=set(
+                list(
+                    pep.sample_table.loc[
+                        pep.sample_table["batch"] == wildcards.batch, "sample_name"
+                    ]
+                )
+            ),
         ),
     output:
         report(
-            "results/multiqc.html",
+            "results/multiqc_{batch}.html",
             caption="report/multiqc.rst",
             category="Quality control",
         ),
     params:
         "-d -dd 1",
     log:
-        "results/multiqc.log",
+        "logs/multiqc_{batch}.log",
     resources:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.7.3/multiqc"
+        "0.72.0/bio/multiqc"
