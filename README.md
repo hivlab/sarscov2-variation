@@ -51,9 +51,7 @@ batch | sample_name | run | read1
 1 | A  | A2 | A2.fq
 2 | B  | B1 | B1.fq
 
-
-- Update `config/pep.yaml`: "read1" (and "read2", "batch") in sources definition matches column(s) in your samples.csv file, if you have other column names, adjust this variable accordingly in `pep.yaml`. Please see [PEP specification](http://pep.databio.org/en/latest/specification/) for further options to customise pep config file to your needs. 
-
+- Update `config/pep.yaml`: "read1" (and "read2", "batch") in sources definition matches column(s) in your samples.csv file, if you have other column names, adjust this variable accordingly in `pep.yaml`. Please see [PEP specification](http://pep.databio.org/en/latest/specification/) for further options to customise pep config file to your needs.
 
 ```yaml
 pep_version: 2.0.0
@@ -82,8 +80,6 @@ sample_modifiers:
     sources:
       r1: "/path/to/reads/{batch}/{read1}"
 ```
-
-
 
 ## Download databases
 
