@@ -531,7 +531,7 @@ rule fastqc:
         rules.reformat.output.out,
     output:
         html="results/{sample}/{run}/fastqc.html",
-        zip="results/{sample}/{run}/fastqc.zip",
+        zip="results/{sample}/{run}_fastqc.zip",
     log:
         "logs/{sample}/{run}/fastqs.log",
     resources:
@@ -564,10 +564,10 @@ rule multiqc:
         lambda wildcards: expand(
             [
                 "results/{sample}/{run}/fastq_screen.txt",
-                "results/{sample}/{run}/fastqc.zip",
+                "results/{sample}/{run}_fastqc.zip",
             ]
             if fastq_screen_db
-            else "results/{sample}/{run}/fastqc.zip",
+            else "results/{sample}/{run}_fastqc.zip",
             zip,
             sample=list(
                 pep.sample_table.loc[
