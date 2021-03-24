@@ -165,7 +165,7 @@ rule refgenome:
         "minimal"
     params:
         extra=(
-            lambda wildcards: f"append maxindel=200 usemodulo slow k=12 nodisk RGPL={PLATFORM} RGID={wildcards.sample} RGSM={wildcards.sample}"
+            lambda wildcards: f"append maxindel=200 strictmaxindel usemodulo slow k=12 nodisk RGPL={PLATFORM} RGID={wildcards.sample} RGSM={wildcards.sample}"
         ),
     resources:
         runtime=120,
