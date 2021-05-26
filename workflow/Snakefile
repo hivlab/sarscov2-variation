@@ -439,7 +439,6 @@ rule snpeff:
     """
     input:
         calls="results/{sample}/lofreq.vcf",
-        db="resources/refseq/NC_045512.2",
     output:
         calls="results/{sample}/snpeff.vcf", # annotated calls (vcf, bcf, or vcf.gz)
         stats="results/{sample}/snpeff.html", # summary statistics (in HTML), optional
@@ -448,12 +447,13 @@ rule snpeff:
     log:
         "logs/{sample}/snpeff.log",
     params:
+        db="resources/refseq/NC_045512.2",
         extra="-configOption 'NC_045512.2'.genome='NC_045512.2' -configOption 'NC_045512.2'.codonTable='Standard' -formatEff -classic -no-downstream -no-intergenic -no-intron -no-upstream -no-utr",
     resources:
         runtime=120,
         mem_mb=4000,
     wrapper:
-        f"{WRAPPER_PREFIX}/v0.7.2/snpeff"
+        f"{WRAPPER_PREFIX}/master/snpeff"
 
 
 rule snpsift:
