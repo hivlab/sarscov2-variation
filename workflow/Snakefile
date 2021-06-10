@@ -101,7 +101,7 @@ rule filter:
     log:
         "logs/{sample}/{run}/filter.log",
     params:
-        extra="k=31 ref=artifacts,phix ordered cardinality",
+        extra="k=31 ref=artifacts,phix ordered cardinality pigz=32 unpigz zl=8",
     resources:
         runtime=120,
         mem_mb=4000,
@@ -115,7 +115,7 @@ rule correct1:
     output:
         out=temp("results/{sample}/{run}/ecco.fq"),
     params:
-        extra="ecco mix vstrict ordered",
+        extra="ecco mix vstrict ordered pigz=32 unpigz zl=8",
     log:
         "logs/{sample}/{run}/correct1.log",
     resources:
@@ -132,7 +132,7 @@ rule correct2:
     output:
         out="results/{sample}/{run}/ecct.fq",
     params:
-        extra="mode=correct k=50 ordered",
+        extra="mode=correct k=50 ordered pigz=32 unpigz zl=8",
     log:
         "logs/{sample}/{run}/correct2.log",
     resources:
@@ -165,7 +165,7 @@ rule refgenome:
         "minimal"
     params:
         extra=(
-            lambda wildcards: f"append maxindel=200 strictmaxindel usemodulo slow k=12 nodisk RGPL={PLATFORM} RGID={wildcards.sample} RGSM={wildcards.sample}"
+            lambda wildcards: f"append maxindel=200 usemodulo slow k=12 nodisk RGPL={PLATFORM} RGID={wildcards.sample} RGSM={wildcards.sample} pigz=16 unpigz zl=8"
         ),
     resources:
         runtime=120,
@@ -175,196 +175,23 @@ rule refgenome:
         f"{WRAPPER_PREFIX}/v0.6/bbtools/bbwrap"
 
 
-rule samtools_fixmate:
+rule callvariants:
     input:
-        rules.refgenome.output.out,
+        input=rules.refgenome.output.out,
+        ref="resources/refseq/NC_045512.2/sequences.fa",
     output:
-        temp("results/{sample}/fixmate.bam"),
+        vcf="results/{sample}/vars.vcf",
+        out="results/{sample}/vars.txt",
     params:
-        extra="",
+        extra="minallelefraction=0.05 strandedcov",
+    log:
+        "logs/{sample}/callvariants.log",
     resources:
         runtime=120,
         mem_mb=4000,
     threads: 4
     wrapper:
-        "0.68.0/bio/samtools/fixmate"
-
-
-rule samtools_sort:
-    input:
-        rules.samtools_fixmate.output[0],
-    output:
-        temp("results/{sample}/sorted.bam"),
-    log:
-        "logs/{sample}/samtools_sort.log",
-    params:
-        extra=lambda wildcards, resources: f"-m {resources.mem_mb}M",
-        tmp_dir="/tmp/",
-    resources:
-        mem_mb=4000,
-        runtime=lambda wildcards, attempt: attempt * 240,
-    threads: 4
-    wrapper:
-        "0.68.0/bio/samtools/sort"
-
-
-rule mark_duplicates:
-    input:
-        rules.samtools_sort.output[0],
-    output:
-        bam=temp("results/{sample}/dedup.bam"),
-        metrics="results/{sample}/dedup.txt",
-    log:
-        "logs/{sample}/dedup.log",
-    params:
-        "CREATE_INDEX='true' USE_JDK_DEFLATER='true' USE_JDK_INFLATER='true' REMOVE_DUPLICATES='true' ASSUME_SORTED='true' DUPLICATE_SCORING_STRATEGY='SUM_OF_BASE_QUALITIES' OPTICAL_DUPLICATE_PIXEL_DISTANCE='100' VALIDATION_STRINGENCY='LENIENT' QUIET='true' VERBOSITY='ERROR'",
-    resources:
-        runtime=120,
-        mem_mb=4000,
-    threads: 4
-    wrapper:
-        "0.68.0/bio/picard/markduplicates"
-
-
-rule indelqual1:
-    """
-    Insert indel qualities.
-    """
-    input:
-        ref="resources/refseq/NC_045512.2/sequences.fa",
-        bam=rules.mark_duplicates.output.bam,
-    output:
-        temp("results/{sample}/indelqual1.bam"),
-    log:
-        "logs/{sample}/indelqual1.log",
-    params:
-        extra="--verbose",
-    resources:
-        runtime=120,
-        mem_mb=4000,
-    threads: 4
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.6/lofreq/indelqual"
-
-
-rule lofreq1:
-    """
-    Variant calling.
-    """
-    input:
-        ref="resources/refseq/NC_045512.2/sequences.fa",
-        bam=rules.indelqual1.output[0],
-    output:
-        temp("results/{sample}/lofreq1.vcf"),
-    log:
-        "logs/{sample}/lofreq1.log",
-    params:
-        extra="--call-indels",
-    resources:
-        runtime=120,
-        mem_mb=lambda wildcards, input: 4000 + 40 * (input.bam.size // 1000000),
-    threads: 4
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.6/lofreq/call"
-
-
-rule indexfeaturefile:
-    """
-    Index vcf vile.
-    """
-    input:
-        rules.lofreq1.output[0],
-    output:
-        temp("results/{sample}/lofreq1.vcf.idx"),
-    log:
-        "logs/{sample}/indexfeaturefile.log",
-    params:
-        extra="",
-    resources:
-        runtime=120,
-        mem_mb=4000,
-    threads: 1
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.6.1/gatk/indexfeaturefile"
-
-
-rule gatk_baserecalibrator:
-    input:
-        ref="resources/refseq/NC_045512.2/sequences.fa",
-        bam=rules.indelqual1.output[0],
-        dict="resources/refseq/NC_045512.2/sequences.dict",
-        known=rules.lofreq1.output[0],
-        feature_index=rules.indexfeaturefile.output[0],
-    output:
-        recal_table=temp("results/{sample}/recal_table.grp"),
-    log:
-        "logs/{sample}/baserecalibrator.log",
-    resources:
-        runtime=120,
-        mem_mb=lambda wildcards, input: 4000 + 40 * (input.bam.size // 1000000),
-    wrapper:
-        "0.68.0/bio/gatk/baserecalibrator"
-
-
-rule applybqsr:
-    """
-    Inserts indel qualities into BAM.
-    """
-    input:
-        ref="resources/refseq/NC_045512.2/sequences.fa",
-        bam=rules.indelqual1.output[0],
-        recal_table="results/{sample}/recal_table.grp",
-    output:
-        bam=temp("results/{sample}/recalibrated.bam"),
-    log:
-        "logs/{sample}/applybqsr.log",
-    resources:
-        runtime=120,
-        mem_mb=lambda wildcards, input: 4000 + 40 * (input.bam.size // 1000000),
-    wrapper:
-        "0.68.0/bio/gatk/applybqsr"
-
-
-rule indelqual:
-    """
-    Insert indel qualities.
-    """
-    input:
-        ref="resources/refseq/NC_045512.2/sequences.fa",
-        bam=rules.applybqsr.output.bam,
-    output:
-        temp("results/{sample}/indelqual.bam"),
-    log:
-        "logs/{sample}/indelqual.log",
-    params:
-        extra="--verbose",
-    resources:
-        runtime=120,
-        mem_mb=lambda wildcards, input: 4000 + 40 * (input.bam.size // 1000000),
-    threads: 4
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.6/lofreq/indelqual"
-
-
-rule lofreq:
-    """
-    Variant calling.
-    """
-    input:
-        ref="resources/refseq/NC_045512.2/sequences.fa",
-        bam=rules.indelqual.output[0],
-    output:
-        "results/{sample}/lofreq.vcf",
-    log:
-        "logs/{sample}/lofreq.log",
-    params:
-        extra="--call-indels",
-    resources:
-        runtime=120,
-        mem_mb=lambda wildcards, input: 4000 + 40 * (input.bam.size // 1000000),
-    threads: 4
-    wrapper:
-        f"{WRAPPER_PREFIX}/v0.6/lofreq/call"
+        f"{WRAPPER_PREFIX}/master/bbtools/callvariants"
 
 
 rule pileup:
@@ -393,7 +220,7 @@ rule vcffilter:
     Filter variants based on allele frequency.
     """
     input:
-        rules.lofreq.output[0],
+        rules.callvariants.output.vcf,
     output:
         "results/{sample}/filtered.vcf",
     log:
@@ -438,7 +265,7 @@ rule snpeff:
     Functional annotation of variants.
     """
     input:
-        calls="results/{sample}/lofreq.vcf",
+        calls="results/{sample}/vars.vcf",
     output:
         calls="results/{sample}/snpeff.vcf", # annotated calls (vcf, bcf, or vcf.gz)
         stats="results/{sample}/snpeff.html", # summary statistics (in HTML), optional
