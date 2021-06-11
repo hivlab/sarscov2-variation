@@ -191,7 +191,7 @@ rule callvariants:
         mem_mb=4000,
     threads: 4
     wrapper:
-        f"{WRAPPER_PREFIX}/master/bbtools/callvariants"
+        f"{WRAPPER_PREFIX}/v0.8.0/bbtools/callvariants"
 
 
 rule pileup:
