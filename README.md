@@ -1,6 +1,6 @@
 # sarscov2-variation
 
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/avilab/sarscov2-variation)[![Snakemake](https://img.shields.io/badge/snakemake-≥5.27.4-brightgreen.svg?style=flat)](https://snakemake.readthedocs.io)![CI](https://github.com/avilab/sarscov2-variation/workflows/CI/badge.svg)[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4515565.svg)](https://doi.org/10.5281/zenodo.4515565)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/avilab/sarscov2-variation)[![Snakemake](https://img.shields.io/badge/snakemake-≥5.27.4-brightgreen.svg?style=flat)](https://snakemake.readthedocs.io)![CI](https://github.com/avilab/sarscov2-variation/workflows/CI/badge.svg)[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4515564.svg)](https://doi.org/10.5281/zenodo.4515564)
 
 Snakemake workflow to align SARS-CoV-2 paired-end sequencing reads to NCBI reference sequence NC_045512.2.
 
